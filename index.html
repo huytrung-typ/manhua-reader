@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0f111a">
+    <link rel="manifest" href="manifest.json">
     <title>AI Summary Reader</title>
     <style>
         /* === BIẾN MÀU SẮC (THEMES) === */
         :root {
-            /* Mặc định: Ban đêm (Dark) */
             --bg-color: #0f111a; --text-color: #e2e8f0; --panel-bg: #1e2130;
             --accent: #7c3aed; --accent-hover: #6d28d9;
             --update-bg: rgba(234, 179, 8, 0.15); --update-border: #eab308;
             --card-bg: #1e2433; --card-border: #2d3748;
             --clue-bg: #1e1e2d; --input-bg: #0f111a;
-            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             --font-size: 18px;
         }
 
         [data-theme="sepia"] {
-            /* Chế độ giấy ngả vàng (Sepia) */
             --bg-color: #f4ecd8; --text-color: #433422; --panel-bg: #e8dcc4;
             --accent: #b45309; --accent-hover: #92400e;
             --update-bg: rgba(217, 119, 6, 0.15); --update-border: #d97706;
@@ -27,7 +27,6 @@
         }
 
         [data-theme="oled"] {
-            /* Chế độ siêu tiết kiệm pin (OLED Black) */
             --bg-color: #000000; --text-color: #d1d5db; --panel-bg: #0a0a0a;
             --accent: #3b82f6; --accent-hover: #2563eb;
             --update-bg: rgba(234, 179, 8, 0.1); --update-border: #ca8a04;
@@ -44,133 +43,93 @@
         
         #container { width: 100%; max-width: 800px; padding: 15px; box-sizing: border-box; }
         
-        /* THANH TIẾN ĐỘ ĐỌC (PROGRESS BAR) */
         #progress-bar {
             position: fixed; top: 0; left: 0; height: 3px; background: var(--accent);
             width: 0%; z-index: 9999; transition: width 0.1s;
         }
 
-        /* NÚT CÀI ĐẶT [Aa] */
-        #settings-btn {
-            position: fixed; top: 15px; right: 15px; background: var(--panel-bg); color: var(--text-color);
-            border: 1px solid var(--card-border); border-radius: 50%; width: 44px; height: 44px;
-            font-weight: bold; cursor: pointer; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            display: flex; align-items: center; justify-content: center; font-size: 16px; transition: 0.2s;
+        /* TOOLBAR NỔI BÊN PHẢI */
+        .floating-tools {
+            position: fixed; bottom: 30px; right: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 1000;
         }
-        #settings-btn:active { transform: scale(0.9); }
+        .tool-btn {
+            background: var(--panel-bg); color: var(--text-color); border: 1px solid var(--card-border);
+            width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 20px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: 0.2s;
+        }
+        .tool-btn:active { transform: scale(0.9); }
+        .tool-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        
+        #btt-btn { display: none; background: var(--accent); color: white; border: none; }
 
-        /* NÚT LÊN ĐẦU TRANG */
-        #btt-btn {
-            position: fixed; bottom: 90px; right: 20px; background: var(--accent); color: white;
-            width: 44px; height: 44px; border-radius: 50%; display: none; align-items: center; 
-            justify-content: center; border: none; cursor: pointer; z-index: 100; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-size: 20px;
+        /* MỤC LỤC TRƯỢT (SIDEBAR) */
+        #sidebar {
+            position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: var(--panel-bg);
+            z-index: 4000; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 5px 0 25px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column; border-right: 1px solid var(--card-border);
         }
+        #sidebar.open { left: 0; }
+        .sidebar-header { padding: 20px; font-size: 20px; font-weight: bold; border-bottom: 1px solid var(--card-border); display: flex; justify-content: space-between; align-items: center; }
+        .close-sidebar { background: none; border: none; color: var(--text-color); font-size: 24px; cursor: pointer; padding: 0; height: auto; min-height: auto;}
+        #toc-list { flex: 1; overflow-y: auto; padding: 10px 0; list-style: none; margin: 0; }
+        .toc-item { padding: 12px 20px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.05); transition: 0.2s; }
+        .toc-item:active { background: var(--accent); color: white; }
+        .toc-item.active { color: var(--accent); font-weight: bold; border-left: 4px solid var(--accent); background: rgba(124, 58, 237, 0.1); }
 
         .nav-bar {
             display: flex; justify-content: space-between; align-items: center;
             background-color: var(--panel-bg); padding: 12px 20px; border-radius: 12px; margin-top: 15px;
-            position: sticky; top: 15px; z-index: 90; box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
-            border: 1px solid var(--card-border);
+            position: sticky; top: 15px; z-index: 90; box-shadow: 0 4px 20px rgba(0,0,0,0.5); border: 1px solid var(--card-border);
         }
-        
         .nav-center { display: flex; align-items: center; justify-content: center; flex: 1; padding: 0 10px; }
-        
-        button {
-            background-color: var(--accent); color: white; border: none; 
-            padding: 0 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s;
-            display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px;
-        }
-        button:active { transform: scale(0.96); }
-        
-        #chap-btn {
-            background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text-color); 
-            width: 100%; max-width: 180px; font-size: 16px; justify-content: space-between; padding: 0 15px;
-        }
+        button { background-color: var(--accent); color: white; border: none; padding: 0 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; }
+        #chap-btn { background: var(--input-bg); border: 1px solid var(--card-border); color: var(--text-color); width: 100%; max-width: 180px; font-size: 16px; justify-content: space-between; padding: 0 15px; }
         
         #content-box { margin-top: 20px; padding-bottom: 60px; min-height: 80vh; }
         
-        .section-title {
-            color: #38bdf8; font-size: 1.1em; font-weight: bold; text-transform: uppercase; margin: 35px 0 15px 0;
-            padding-bottom: 8px; border-bottom: 2px solid var(--card-border);
+        /* CSS CHO INFINITY SCROLL */
+        .chapter-wrapper { animation: fadeIn 0.6s ease-out; padding-bottom: 30px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        .chap-divider { 
+            text-align: center; margin: 50px 0 30px 0; font-size: 22px; font-weight: bold; color: var(--accent);
+            display: flex; align-items: center; 
         }
-        
+        .chap-divider::before, .chap-divider::after { content: ''; flex: 1; border-bottom: 1px dashed var(--card-border); margin: 0 15px; }
+
+        .section-title { color: #38bdf8; font-size: 1.1em; font-weight: bold; text-transform: uppercase; margin: 35px 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid var(--card-border); }
         .story-text { margin-bottom: 18px; text-align: justify; } 
-        
-        /* HIGHLIGHT TÊN NHÂN VẬT CHÍNH */
         .highlight { color: #ec4899; font-weight: bold; }
         [data-theme="sepia"] .highlight { color: #b91c1c; }
 
-        /* THẺ NHÂN VẬT THU GỌN (ACCORDION) */
-        .char-card {
-            background: var(--card-bg); border-radius: 10px; margin-bottom: 15px; 
-            border: 1px solid var(--card-border); overflow: hidden;
-        }
-        .char-main {
-            padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; 
-            cursor: pointer; list-style: none; /* Ẩn mũi tên mặc định */
-        }
-        .char-main::-webkit-details-marker { display: none; } /* Safari */
-        .char-main::after {
-            content: '▼'; margin-left: auto; font-size: 12px; color: var(--text-color); opacity: 0.5;
-        }
+        .char-card { background: var(--card-bg); border-radius: 10px; margin-bottom: 15px; border: 1px solid var(--card-border); overflow: hidden; }
+        .char-main { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; cursor: pointer; list-style: none; }
+        .char-main::-webkit-details-marker { display: none; }
+        .char-main::after { content: '▼'; margin-left: auto; font-size: 12px; color: var(--text-color); opacity: 0.5; }
         details[open] .char-main::after { content: '▲'; }
-
         .char-name { font-weight: bold; font-size: 1.1em; margin-right: 4px; }
         .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75em; font-weight: 600; background: #334155; color: #94a3b8; }
         .badge.tuvi { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
         .badge.status { background: rgba(34, 197, 94, 0.1); color: #4ade80; }
-        [data-theme="sepia"] .badge.tuvi { background: rgba(2, 132, 199, 0.1); color: #0284c7; }
-        [data-theme="sepia"] .badge.status { background: rgba(22, 163, 74, 0.1); color: #16a34a; }
-        
-        .char-update {
-            background: var(--update-bg); padding: 12px 16px; border-top: 1px dashed var(--update-border); 
-            border-left: 4px solid var(--update-border); font-size: 0.95em; animation: slideDown 0.2s ease-out;
-        }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-        
+        .char-update { background: var(--update-bg); padding: 12px 16px; border-top: 1px dashed var(--update-border); border-left: 4px solid var(--update-border); font-size: 0.95em; }
         .clue-item { background: var(--clue-bg); padding: 12px 16px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #ec4899; }
-        
         .loading { color: #888; font-style: italic; text-align: center; margin-top: 50px; }
         
-        .toast {
-            visibility: hidden; min-width: 200px; background-color: #334155; color: #fff; text-align: center;
-            border-radius: 30px; padding: 12px 20px; position: fixed; z-index: 3000; left: 50%; transform: translateX(-50%);
-            bottom: 90px; font-size: 15px; opacity: 0; transition: opacity 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-        }
+        .toast { visibility: hidden; min-width: 200px; background-color: #334155; color: #fff; text-align: center; border-radius: 30px; padding: 12px 20px; position: fixed; z-index: 5000; left: 50%; transform: translateX(-50%); bottom: 90px; font-size: 15px; opacity: 0; transition: opacity 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
         .toast.show { visibility: visible; opacity: 1; }
 
-        /* ========================================== */
-        /* MODALS (BẢNG ĐIỀU KHIỂN & CÀI ĐẶT)         */
-        /* ========================================== */
-        .modal-backdrop {
-            display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%;
-            background-color: rgba(0,0,0,0.7); align-items: center; justify-content: center;
-            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.2s;
-        }
+        /* BẢNG ĐIỀU KHIỂN & CÀI ĐẶT */
+        .modal-backdrop { display: none; position: fixed; z-index: 3000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); align-items: center; justify-content: center; backdrop-filter: blur(5px); opacity: 0; transition: opacity 0.2s; }
         .modal-backdrop.show { display: flex; opacity: 1; }
-        
-        .modal-content {
-            background-color: var(--panel-bg); padding: 25px 20px; border-radius: 16px; width: 85%; max-width: 320px;
-            text-align: center; border: 1px solid var(--card-border); box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-            transform: translateY(20px); transition: transform 0.2s;
-        }
+        .modal-content { background-color: var(--panel-bg); padding: 25px 20px; border-radius: 16px; width: 85%; max-width: 320px; text-align: center; border: 1px solid var(--card-border); transform: translateY(20px); transition: transform 0.2s; }
         .modal-backdrop.show .modal-content { transform: translateY(0); }
         .modal-content h3 { margin: 0 0 15px 0; font-size: 18px; }
         
-        /* Modal Nhập Số Chương */
-        #chap-input {
-            width: 100%; padding: 12px; box-sizing: border-box; border-radius: 8px; border: 2px solid var(--card-border);
-            background: var(--input-bg); color: var(--accent); font-size: 22px; font-weight: bold; text-align: center;
-            margin-bottom: 20px; outline: none;
-        }
+        #chap-input { width: 100%; padding: 12px; box-sizing: border-box; border-radius: 8px; border: 2px solid var(--card-border); background: var(--input-bg); color: var(--accent); font-size: 22px; font-weight: bold; text-align: center; margin-bottom: 20px; outline: none; }
         #chap-input:focus { border-color: var(--accent); }
-        
         .modal-buttons { display: flex; gap: 10px; }
         .modal-buttons button { flex: 1; font-size: 16px; }
         .btn-cancel { background-color: #475569; }
         
-        /* Modal Cài Đặt */
         .setting-group { margin-bottom: 20px; text-align: left; }
         .setting-group label { display: block; margin-bottom: 8px; font-size: 14px; opacity: 0.8; font-weight: bold;}
         .flex-row { display: flex; gap: 10px; justify-content: space-between; align-items: center; }
@@ -178,29 +137,37 @@
         .flex-row button.active { border-color: var(--accent); color: var(--accent); background: rgba(124, 58, 237, 0.1); }
         .val-display { font-weight: bold; width: 50px; text-align: center; }
 
-        /* RESPONSIVE CHO ĐIỆN THOẠI */
         @media (max-width: 600px) {
             #container { padding: 10px; }
-            .nav-bar {
-                position: fixed; top: auto; bottom: 0; left: 0; right: 0;
-                width: 100%; border-radius: 0; margin: 0; padding: 10px 15px; box-sizing: border-box;
-                border-top: 1px solid var(--card-border); border-left: none; border-right: none; border-bottom: none;
-                padding-bottom: env(safe-area-inset-bottom, 10px);
-            }
-            #content-box { padding-bottom: 110px; }
-            .btn-text { display: none; } 
-            button { min-width: 50px; } 
-            .story-text { text-align: left; } /* ĐT căn trái đọc dễ hơn căn đều */
-            #btt-btn { bottom: 80px; }
-            .toast { bottom: 90px; width: 80%; }
+            .nav-bar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; width: 100%; border-radius: 0; margin: 0; padding: 10px 15px; border-top: 1px solid var(--card-border); border-left: none; border-right: none; border-bottom: none; padding-bottom: env(safe-area-inset-bottom, 10px); }
+            #content-box { padding-bottom: 120px; }
+            .btn-text { display: none; } button { min-width: 50px; } 
+            .floating-tools { bottom: 80px; right: 15px; }
+            .toast { bottom: 100px; width: 80%; }
         }
     </style>
 </head>
 <body>
     <div id="progress-bar"></div>
 
-    <button id="settings-btn" onclick="openSettings()">Aa</button>
-    <button id="btt-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">⬆</button>
+    <!-- MỤC LỤC TRƯỢT -->
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <span>Mục lục</span>
+            <button class="close-sidebar" onclick="toggleSidebar()">×</button>
+        </div>
+        <ul id="toc-list"></ul>
+    </div>
+    <div id="sidebar-overlay" class="modal-backdrop" onclick="toggleSidebar()"></div>
+
+    <!-- TOOLBAR NỔI BÊN PHẢI -->
+    <div class="floating-tools">
+        <button class="tool-btn" onclick="openSettings()" title="Cài đặt giao diện">Aa</button>
+        <button class="tool-btn" onclick="toggleSidebar()" title="Mục lục">☰</button>
+        <button id="tts-btn" class="tool-btn" onclick="toggleTTS()" title="Nghe truyện">🎧</button>
+        <button id="autoscroll-btn" class="tool-btn" onclick="toggleAutoScroll()" title="Cuộn tự động">⬇️</button>
+        <button id="btt-btn" class="tool-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" title="Lên đầu trang">⬆</button>
+    </div>
 
     <div id="container">
         <div class="nav-bar">
@@ -216,9 +183,11 @@
         <div id="content-box">
             <div class="loading">Đang tải dữ liệu truyện...</div>
         </div>
+        <!-- Điểm neo dùng để kích hoạt tải Infinity Scroll -->
+        <div id="scroll-anchor" style="height: 50px; width: 100%;"></div>
     </div>
     
-    <!-- Modal Chuyển Chương -->
+    <!-- Modals (Chuyển chương & Cài đặt) -->
     <div id="chap-modal" class="modal-backdrop" onclick="closeOutside(event, 'chap-modal')">
         <div class="modal-content">
             <h3>Chuyển đến chương</h3>
@@ -230,11 +199,9 @@
         </div>
     </div>
 
-    <!-- Modal Cài Đặt Giao Diện -->
     <div id="settings-modal" class="modal-backdrop" onclick="closeOutside(event, 'settings-modal')">
         <div class="modal-content">
             <h3>Tùy chỉnh Giao diện</h3>
-            
             <div class="setting-group">
                 <label>Cỡ chữ</label>
                 <div class="flex-row">
@@ -243,7 +210,6 @@
                     <button onclick="changeFontSize(2)">A+</button>
                 </div>
             </div>
-
             <div class="setting-group">
                 <label>Font chữ</label>
                 <div class="flex-row" id="font-controls">
@@ -251,16 +217,22 @@
                     <button onclick="changeFont('serif')" data-val="serif">Sách giấy</button>
                 </div>
             </div>
-
             <div class="setting-group">
                 <label>Màu nền (Theme)</label>
                 <div class="flex-row" id="theme-controls" style="flex-direction: column;">
-                    <button style="width: 100%;" onclick="changeTheme('dark')" data-val="dark">🌙 Ban đêm (Dark)</button>
-                    <button style="width: 100%;" onclick="changeTheme('sepia')" data-val="sepia">📜 Sách cổ (Sepia)</button>
-                    <button style="width: 100%;" onclick="changeTheme('oled')" data-val="oled">🔋 Đen tuyền (OLED)</button>
+                    <button style="width: 100%;" onclick="changeTheme('dark')" data-val="dark">🌙 Ban đêm</button>
+                    <button style="width: 100%;" onclick="changeTheme('sepia')" data-val="sepia">📜 Sách cổ</button>
+                    <button style="width: 100%;" onclick="changeTheme('oled')" data-val="oled">🔋 OLED Đen</button>
                 </div>
             </div>
-
+            <div class="setting-group">
+                <label>Tốc độ cuộn tự động (Px/Frame)</label>
+                <div class="flex-row">
+                    <button onclick="changeScrollSpeed(-0.5)">-</button>
+                    <span id="speed-display" class="val-display">1.0</span>
+                    <button onclick="changeScrollSpeed(0.5)">+</button>
+                </div>
+            </div>
             <button class="btn-cancel" style="width:100%; margin-top: 10px;" onclick="closeModal('settings-modal')">Đóng</button>
         </div>
     </div>
@@ -268,233 +240,296 @@
     <div id="toast" class="toast">Thông báo</div>
 
     <script>
+        // PWA Caching Setup
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('PWA SW err:', err));
+        }
+
         let storyData = {}; 
         let availableChapters = [];
         let currentChapter = 1;
+        let isLoadingNext = false;
         
-        // Cấu hình LocalStorage
         let cfg = {
             size: parseInt(localStorage.getItem('reader_size')) || 18,
             font: localStorage.getItem('reader_font') || 'sans-serif',
-            theme: localStorage.getItem('reader_theme') || 'dark'
+            theme: localStorage.getItem('reader_theme') || 'dark',
+            speed: parseFloat(localStorage.getItem('reader_speed')) || 1.0
         };
 
-        // ==========================================
-        // 1. QUẢN LÝ CÀI ĐẶT & GIAO DIỆN
-        // ==========================================
-        function initSettings() {
-            document.documentElement.style.setProperty('--font-size', cfg.size + 'px');
-            document.getElementById('font-size-display').textContent = cfg.size + 'px';
-            
-            let fontStr = cfg.font === 'serif' ? 'Georgia, "Times New Roman", serif' : "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-            document.documentElement.style.setProperty('--font-family', fontStr);
-            
-            document.documentElement.setAttribute('data-theme', cfg.theme);
-            
-            // Đánh dấu active button
-            updateActiveButtons('font-controls', cfg.font);
-            updateActiveButtons('theme-controls', cfg.theme);
-        }
-
-        function updateActiveButtons(parentId, val) {
-            let btns = document.querySelectorAll(`#${parentId} button`);
-            btns.forEach(b => {
-                if(b.getAttribute('data-val') === val) b.classList.add('active');
-                else b.classList.remove('active');
-            });
-        }
-
-        function changeFontSize(step) {
-            cfg.size += step;
-            if(cfg.size < 14) cfg.size = 14;
-            if(cfg.size > 30) cfg.size = 30;
-            localStorage.setItem('reader_size', cfg.size);
-            initSettings();
-        }
-
-        function changeFont(type) {
-            cfg.font = type;
-            localStorage.setItem('reader_font', type);
-            initSettings();
-        }
-
-        function changeTheme(type) {
-            cfg.theme = type;
-            localStorage.setItem('reader_theme', type);
-            initSettings();
-        }
-
-        // ==========================================
-        // 2. XỬ LÝ SỰ KIỆN TƯƠNG TÁC (SCROLL, SWIPE, KEYS)
-        // ==========================================
-        window.onscroll = function() {
-            // Thanh tiến độ
-            let winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-            let height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            let scrolled = (winScroll / height) * 100;
-            document.getElementById("progress-bar").style.width = scrolled + "%";
-            
-            // Nút Back to Top
-            let bttBtn = document.getElementById("btt-btn");
-            if (winScroll > 600) bttBtn.style.display = "flex";
-            else bttBtn.style.display = "none";
-        };
-
-        // Vuốt màn hình (Điện thoại)
-        let touchStartX = 0; let touchEndX = 0;
-        document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
-        document.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
-        }, {passive: true});
-
-        function handleSwipe() {
-            if(document.querySelector('.modal-backdrop.show')) return; // Đang mở bảng thì bỏ qua
-            if (touchEndX < touchStartX - 80) changeChapter(1); // Vuốt trái -> Tiến
-            if (touchEndX > touchStartX + 80) changeChapter(-1); // Vuốt phải -> Lùi
-        }
-
-        // Phím tắt bàn phím (Laptop)
-        document.addEventListener('keydown', e => {
-            if(document.querySelector('.modal-backdrop.show')) return;
-            if(e.key === 'ArrowLeft') changeChapter(-1);
-            if(e.key === 'ArrowRight') changeChapter(1);
-        });
-
-        // ==========================================
-        // 3. XỬ LÝ MODAL
-        // ==========================================
-        function openChapModal() {
-            document.getElementById('chap-modal').classList.add('show');
-            let inp = document.getElementById('chap-input');
-            inp.value = currentChapter;
-            setTimeout(() => { inp.focus(); inp.select(); }, 100);
-        }
-        function openSettings() { document.getElementById('settings-modal').classList.add('show'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-        function closeOutside(event, id) {
-            if (event.target.id === id) closeModal(id);
-        }
-
-        document.getElementById('chap-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') jumpToInputChapter();
-        });
-
-        // ==========================================
-        // 4. LÕI TẢI VÀ RENDER TRUYỆN
-        // ==========================================
         function showToast(msg) {
             let toast = document.getElementById("toast");
             toast.textContent = msg; toast.className = "toast show";
             setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 2500);
         }
 
+        // --- CÀI ĐẶT ---
+        function initSettings() {
+            document.documentElement.style.setProperty('--font-size', cfg.size + 'px');
+            document.getElementById('font-size-display').textContent = cfg.size + 'px';
+            document.getElementById('speed-display').textContent = cfg.speed.toFixed(1);
+            
+            let fontStr = cfg.font === 'serif' ? 'Georgia, "Times New Roman", serif' : "-apple-system, BlinkMacSystemFont, sans-serif";
+            document.documentElement.style.setProperty('--font-family', fontStr);
+            document.documentElement.setAttribute('data-theme', cfg.theme);
+            
+            updateActiveButtons('font-controls', cfg.font);
+            updateActiveButtons('theme-controls', cfg.theme);
+        }
+        function updateActiveButtons(id, val) {
+            document.querySelectorAll(`#${id} button`).forEach(b => {
+                b.classList.toggle('active', b.dataset.val === val);
+            });
+        }
+        function changeFontSize(s) { cfg.size = Math.max(14, Math.min(30, cfg.size + s)); localStorage.setItem('reader_size', cfg.size); initSettings(); }
+        function changeFont(t) { cfg.font = t; localStorage.setItem('reader_font', t); initSettings(); }
+        function changeTheme(t) { cfg.theme = t; localStorage.setItem('reader_theme', t); initSettings(); }
+        function changeScrollSpeed(s) { cfg.speed = Math.max(0.5, Math.min(5, cfg.speed + s)); localStorage.setItem('reader_speed', cfg.speed); initSettings(); }
+
+        // --- OBSERVER ĐỂ CẬP NHẬT CHƯƠNG KHI CUỘN VÔ CỰC (Auto Bookmark) ---
+        const chapterObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.3) {
+                    let activeChap = parseInt(entry.target.dataset.chap);
+                    currentChapter = activeChap;
+                    document.getElementById('chap-btn').innerHTML = `<span>Chương ${activeChap}</span> <span>▾</span>`;
+                    localStorage.setItem('reader_last_chap', activeChap); // Lưu Auto-Bookmark
+                    highlightToc(activeChap);
+                }
+            });
+        }, { threshold: 0.3 }); // Kích hoạt khi 30% nội dung chương hiện trên màn hình
+
+        // --- INFINITY SCROLL ĐỂ TỰ ĐỘNG TẢI CHƯƠNG MỚI ---
+        const endObserver = new IntersectionObserver((entries) => {
+            if(entries[0].isIntersecting && !isLoadingNext) {
+                appendNextChapter();
+            }
+        }, { rootMargin: "0px 0px 500px 0px" }); // Bắt đầu tải khi còn cách đáy 500px
+
+        function appendNextChapter() {
+            let renderedDivs = document.querySelectorAll('.chapter-wrapper');
+            if(renderedDivs.length === 0) return;
+            
+            let lastChap = parseInt(renderedDivs[renderedDivs.length - 1].dataset.chap);
+            let nextIndex = availableChapters.indexOf(lastChap) + 1;
+            
+            if(nextIndex < availableChapters.length) {
+                isLoadingNext = true;
+                let nextChap = availableChapters[nextIndex];
+                
+                let div = document.createElement('div');
+                div.className = 'chapter-wrapper';
+                div.dataset.chap = nextChap;
+                div.innerHTML = `<div class="chap-divider"><span>Chương ${nextChap}</span></div>` + parseAIContent(storyData[nextChap]);
+                
+                document.getElementById('content-box').appendChild(div);
+                chapterObserver.observe(div); // Theo dõi thẻ div mới này
+                
+                setTimeout(() => { isLoadingNext = false; }, 100);
+            }
+        }
+
+        // --- LÕI TẢI TRUYỆN ---
         async function fetchStoryFile() {
             try {
                 const response = await fetch('tom_tat_van_co_chi_ton.txt');
-                if (!response.ok) throw new Error("Lỗi mạng");
+                if (!response.ok) throw new Error("Lỗi");
                 parseFullText(await response.text());
             } catch (e) {
-                document.getElementById('content-box').innerHTML = 
-                    `<div class="loading" style="color: #ef4444;">Lỗi: Không tìm thấy file <b>tom_tat_van_co_chi_ton.txt</b>.</div>`;
+                document.getElementById('content-box').innerHTML = `<div class="loading">Lỗi: Không tìm thấy file <b>tom_tat_van_co_chi_ton.txt</b>.</div>`;
+            }
+        }
+
+        function buildToc() {
+            let html = '';
+            availableChapters.forEach(c => {
+                html += `<li class="toc-item" data-id="${c}" onclick="loadChapter(${c}); toggleSidebar();">Chương ${c}</li>`;
+            });
+            document.getElementById('toc-list').innerHTML = html;
+        }
+
+        function highlightToc(chap) {
+            document.querySelectorAll('.toc-item').forEach(el => el.classList.remove('active'));
+            let activeItem = document.querySelector(`.toc-item[data-id="${chap}"]`);
+            if (activeItem) {
+                activeItem.classList.add('active');
+                activeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }
 
         function parseFullText(text) {
             const parts = text.split(/---\s*CHƯƠNG\s+(\d+)\s*---/);
             for (let i = 1; i < parts.length; i += 2) {
-                storyData[parseInt(parts[i])] = parts[i+1];
-                availableChapters.push(parseInt(parts[i]));
+                let cNum = parseInt(parts[i]);
+                storyData[cNum] = parts[i+1];
+                availableChapters.push(cNum);
             }
             availableChapters.sort((a, b) => a - b);
-            if (availableChapters.length > 0) loadChapter(availableChapters[0]);
-            else document.getElementById('content-box').innerHTML = '<div class="loading">File rỗng!</div>';
+            
+            if (availableChapters.length > 0) {
+                buildToc();
+                // Đọc Auto-Bookmark
+                let savedChap = parseInt(localStorage.getItem('reader_last_chap'));
+                if (savedChap && availableChapters.includes(savedChap)) {
+                    loadChapter(savedChap);
+                    showToast(`Tiếp tục đọc từ Chương ${savedChap}`);
+                } else {
+                    loadChapter(availableChapters[0]);
+                }
+                endObserver.observe(document.getElementById('scroll-anchor'));
+            } else {
+                document.getElementById('content-box').innerHTML = '<div class="loading">File rỗng!</div>';
+            }
         }
 
         function parseAIContent(rawText) {
-            let lines = rawText.split('\n');
-            let html = '';
-            
+            let lines = rawText.split('\n'); let html = '';
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
                 if (!line) continue;
-                
-                if (line.includes('[DIỄN BIẾN CHÍNH]')) {
-                    html += '<div class="section-title">📜 Diễn Biến Chính</div>';
-                } else if (line.includes('[HỒ SƠ TÌNH TRẠNG & TIẾN HÓA]')) {
-                    html += '<div class="section-title">👤 Hồ Sơ Nhân Vật</div>';
-                } else if (line.includes('[MANH MỐI & BÍ ẨN]')) {
-                    html += '<div class="section-title">🔍 Manh Mối & Bí Ẩn</div>';
-                } else if (line.startsWith('- ')) {
-                    let parts = line.substring(2).split('|').map(s => s.trim());
-                    let name = parts[0] || 'Vô danh';
-                    let tuviHtml = parts[1] ? `<span class="badge tuvi">${parts[1]}</span>` : '';
-                    let statusHtml = parts[2] ? `<span class="badge status">${parts[2]}</span>` : '';
-                    
-                    // Thẻ details/summary gập mở
-                    html += `<details class="char-card">
-                                <summary class="char-main">
-                                    <span class="char-name">${name}</span> ${tuviHtml} ${statusHtml}
-                                </summary>`;
-                    
+                if (line.includes('[DIỄN BIẾN CHÍNH]')) html += '<div class="section-title">📜 Diễn Biến Chính</div>';
+                else if (line.includes('[HỒ SƠ TÌNH TRẠNG & TIẾN HÓA]')) html += '<div class="section-title">👤 Hồ Sơ Nhân Vật</div>';
+                else if (line.includes('[MANH MỐI & BÍ ẨN]')) html += '<div class="section-title">🔍 Manh Mối & Bí Ẩn</div>';
+                else if (line.startsWith('- ')) {
+                    let p = line.substring(2).split('|').map(s => s.trim());
+                    let tuvi = p[1] ? `<span class="badge tuvi">${p[1]}</span>` : '';
+                    let st = p[2] ? `<span class="badge status">${p[2]}</span>` : '';
+                    html += `<details class="char-card"><summary class="char-main"><span class="char-name">${p[0]||'Vô danh'}</span> ${tuvi} ${st}</summary>`;
                     if (i + 1 < lines.length && (lines[i+1].includes('↳') || lines[i+1].includes('CẬP NHẬT'))) {
-                        let cleanUpdate = lines[i+1].replace(/↳|⚠|CẬP NHẬT:/g, '').trim();
-                        html += `<div class="char-update"><b>⚡ Cập nhật:</b> ${cleanUpdate}</div>`;
-                        i++;
-                    } else {
-                        html += `<div class="char-update">Không có ghi nhận mới.</div>`;
-                    }
+                        html += `<div class="char-update"><b>⚡ Cập nhật:</b> ${lines[++i].replace(/↳|⚠|CẬP NHẬT:/g, '').trim()}</div>`;
+                    } else html += `<div class="char-update">Không có ghi nhận mới.</div>`;
                     html += `</details>`; 
-                } else if (line.startsWith('✦')) {
-                    html += `<div class="clue-item"><span>✦</span> ${line.substring(1).trim()}</div>`;
-                } else if (!line.includes('↳') && !line.includes('CẬP NHẬT:')) {
-                    // Tự động highlight Lý Vân Tiêu
-                    let formattedLine = line.replace(/(Lý Vân Tiêu)/g, '<span class="highlight">$1</span>');
-                    html += `<p class="story-text">${formattedLine}</p>`;
+                } 
+                else if (line.startsWith('✦')) html += `<div class="clue-item"><span>✦</span> ${line.substring(1).trim()}</div>`;
+                else if (!line.includes('↳') && !line.includes('CẬP NHẬT:')) {
+                    html += `<p class="story-text">${line.replace(/(Lý Vân Tiêu)/g, '<span class="highlight">$1</span>')}</p>`;
                 }
             }
             return html;
         }
 
+        // Load dứt điểm 1 chương (xóa sạch nội dung cũ - Dùng khi nhảy cóc hoặc bấm nút Next/Prev)
         function loadChapter(chapNum) {
             chapNum = parseInt(chapNum);
             if (storyData[chapNum]) {
                 currentChapter = chapNum;
-                document.getElementById('content-box').innerHTML = parseAIContent(storyData[chapNum]); 
+                let cBox = document.getElementById('content-box');
+                
+                // Hủy theo dõi các chương cũ
+                document.querySelectorAll('.chapter-wrapper').forEach(el => chapterObserver.unobserve(el));
+                
+                let div = document.createElement('div');
+                div.className = 'chapter-wrapper';
+                div.dataset.chap = chapNum;
+                div.innerHTML = parseAIContent(storyData[chapNum]);
+                
+                cBox.innerHTML = '';
+                cBox.appendChild(div);
+                
+                chapterObserver.observe(div);
+                localStorage.setItem('reader_last_chap', chapNum);
+                
                 document.getElementById('chap-btn').innerHTML = `<span>Chương ${currentChapter}</span> <span>▾</span>`;
+                highlightToc(chapNum);
                 window.scrollTo({ top: 0, behavior: 'auto' });
             }
         }
 
         function changeChapter(step) {
-            if (availableChapters.length === 0) return;
-            let currentIndex = availableChapters.indexOf(currentChapter);
-            let nextIndex = currentIndex + step;
-
-            if (nextIndex < 0) { showToast("Đây là chương đầu tiên rồi!"); return; }
-            if (nextIndex >= availableChapters.length) { showToast("Đã đến chương cuối cùng!"); return; }
-
-            loadChapter(availableChapters[nextIndex]);
+            let nextIndex = availableChapters.indexOf(currentChapter) + step;
+            if (nextIndex >= 0 && nextIndex < availableChapters.length) {
+                loadChapter(availableChapters[nextIndex]);
+            } else {
+                showToast(step > 0 ? "Đã đến chương cuối!" : "Đây là chương đầu!");
+            }
         }
 
         function jumpToInputChapter() {
             let targetNum = parseInt(document.getElementById('chap-input').value);
-            if (isNaN(targetNum) || targetNum < 1) { showToast("Vui lòng nhập số hợp lệ!"); return; }
-            if (availableChapters.includes(targetNum)) {
-                loadChapter(targetNum);
-            } else {
+            if (!targetNum || targetNum < 1) return;
+            if (availableChapters.includes(targetNum)) loadChapter(targetNum);
+            else {
                 let nearest = availableChapters.reduce((prev, curr) => Math.abs(curr - targetNum) < Math.abs(prev - targetNum) ? curr : prev);
-                showToast(`Không có chương ${targetNum}. Bắt vào chương: ${nearest}`);
-                loadChapter(nearest);
+                showToast(`Bắt vào chương gần nhất: ${nearest}`); loadChapter(nearest);
             }
             closeModal('chap-modal');
         }
 
-        // Khởi động
-        window.onload = () => {
-            initSettings();
-            fetchStoryFile();
+        // --- CÁC TÍNH NĂNG TƯƠNG TÁC (Scroll, Swipe, TTS) ---
+        window.onscroll = function() {
+            let winScroll = document.documentElement.scrollTop;
+            let height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            document.getElementById("progress-bar").style.width = (winScroll / height) * 100 + "%";
+            document.getElementById("btt-btn").style.display = winScroll > 600 ? "flex" : "none";
         };
+
+        // Auto Scroll
+        let isAutoScrolling = false; let scrollReq;
+        function toggleAutoScroll() {
+            isAutoScrolling = !isAutoScrolling;
+            document.getElementById('autoscroll-btn').classList.toggle('active', isAutoScrolling);
+            if(isAutoScrolling) { showToast("Bật cuộn tự động"); autoScrollStep(); }
+            else { cancelAnimationFrame(scrollReq); }
+        }
+        function autoScrollStep() {
+            window.scrollBy(0, cfg.speed);
+            scrollReq = requestAnimationFrame(autoScrollStep);
+        }
+        // Dừng cuộn khi người dùng chạm vào màn hình
+        document.addEventListener('touchstart', () => { if(isAutoScrolling) toggleAutoScroll(); }, {passive: true});
+        document.addEventListener('mousedown', (e) => { if(isAutoScrolling && e.target.tagName !== 'BUTTON') toggleAutoScroll(); });
+
+        // TTS - Đọc truyện
+        let synth = window.speechSynthesis;
+        let isSpeaking = false;
+        function toggleTTS() {
+            let btn = document.getElementById('tts-btn');
+            if(isSpeaking) {
+                synth.cancel(); isSpeaking = false; btn.classList.remove('active'); showToast("Đã tắt âm thanh"); return;
+            }
+            let activeWrap = document.querySelector(`.chapter-wrapper[data-chap="${currentChapter}"]`);
+            if(!activeWrap) return;
+            
+            let paragraphs = activeWrap.querySelectorAll('.story-text');
+            let textToRead = Array.from(paragraphs).map(p => p.innerText).join('. ');
+            
+            if(!textToRead) { showToast("Chương này không có văn bản diễn biến"); return; }
+            
+            let utterance = new SpeechSynthesisUtterance(textToRead);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 1.1; // Tốc độ hơi nhanh một chút
+            
+            utterance.onend = () => { isSpeaking = false; btn.classList.remove('active'); };
+            synth.speak(utterance);
+            
+            isSpeaking = true;
+            btn.classList.add('active');
+            showToast("Đang đọc Chương " + currentChapter);
+        }
+
+        // Gestures (Vuốt)
+        let touchStartX = 0; let touchEndX = 0;
+        document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            if(!document.querySelector('.modal-backdrop.show') && !document.getElementById('sidebar').classList.contains('open')) {
+                if (touchEndX < touchStartX - 100) changeChapter(1);
+                if (touchEndX > touchStartX + 100) changeChapter(-1);
+            }
+        }, {passive: true});
+
+        // Modals & Sidebar
+        function openChapModal() { document.getElementById('chap-modal').classList.add('show'); setTimeout(() => { document.getElementById('chap-input').focus(); }, 100); }
+        function openSettings() { document.getElementById('settings-modal').classList.add('show'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+        function closeOutside(e, id) { if (e.target.id === id) closeModal(id); }
+        function toggleSidebar() { 
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('show');
+        }
+        document.getElementById('chap-input').addEventListener('keypress', e => { if (e.key === 'Enter') jumpToInputChapter(); });
+
+        window.onload = () => { initSettings(); fetchStoryFile(); };
     </script>
 </body>
 </html>

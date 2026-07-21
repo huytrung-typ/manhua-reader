@@ -1,0 +1,16 @@
+{
+  "name": "Manhua AI Reader",
+  "short_name": "AI Reader",
+  "description": "App đọc tóm tắt truyện tranh AI mượt mà nhất",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f111a",
+  "theme_color": "#0f111a",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3592/3592006.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
