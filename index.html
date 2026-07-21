@@ -479,34 +479,101 @@
         document.addEventListener('touchstart', () => { if(isAutoScrolling) toggleAutoScroll(); }, {passive: true});
         document.addEventListener('mousedown', (e) => { if(isAutoScrolling && e.target.tagName !== 'BUTTON') toggleAutoScroll(); });
 
-        // TTS - Đọc truyện
+        // ==========================================
+        // TÍNH NĂNG TTS (ĐỌC TRUYỆN NÂNG CẤP)
+        // ==========================================
         let synth = window.speechSynthesis;
         let isSpeaking = false;
+        let ttsQueue = []; 
+        let viVoice = null;
+
+        // 1. Ép trình duyệt phải tải đúng giọng Tiếng Việt
+        function loadVoices() {
+            let voices = synth.getVoices();
+            // Tìm các giọng có mã vi-VN, vi, hoặc tên chứa chữ Vietnamese
+            viVoice = voices.find(v => v.lang === 'vi-VN' || v.lang === 'vi' || v.name.includes('Vietnamese'));
+        }
+        // Trình duyệt Chrome load giọng bất đồng bộ nên cần sự kiện này
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+        loadVoices(); // Kích hoạt luôn cho Safari/Firefox
+
         function toggleTTS() {
             let btn = document.getElementById('tts-btn');
+
+            // Bấm lần 2 để tắt
             if(isSpeaking) {
-                synth.cancel(); isSpeaking = false; btn.classList.remove('active'); showToast("Đã tắt âm thanh"); return;
+                synth.cancel(); 
+                isSpeaking = false; 
+                ttsQueue = []; // Xóa hàng đợi
+                btn.classList.remove('active'); 
+                showToast("Đã tắt âm thanh"); 
+                return;
             }
+
             let activeWrap = document.querySelector(`.chapter-wrapper[data-chap="${currentChapter}"]`);
             if(!activeWrap) return;
             
-            let paragraphs = activeWrap.querySelectorAll('.story-text');
-            let textToRead = Array.from(paragraphs).map(p => p.innerText).join('. ');
+            // Lấy toàn bộ text từ thẻ p (nội dung) và các thẻ nhân vật
+            let textElements = activeWrap.querySelectorAll('.story-text, .section-title, .char-main, .char-update');
+            let rawText = Array.from(textElements).map(p => p.innerText).join('. ');
             
-            if(!textToRead) { showToast("Chương này không có văn bản diễn biến"); return; }
-            
-            let utterance = new SpeechSynthesisUtterance(textToRead);
-            utterance.lang = 'vi-VN';
-            utterance.rate = 1.1; // Tốc độ hơi nhanh một chút
-            
-            utterance.onend = () => { isSpeaking = false; btn.classList.remove('active'); };
-            synth.speak(utterance);
-            
+            if(!rawText.trim()) { showToast("Chương này không có văn bản!"); return; }
+
+            // 2. Tiền xử lý văn bản: Ép ngắt nhịp thở
+            let cleanText = rawText
+                .replace(/-/g, ', ')        // Biến dấu trừ thành dấu phẩy để ngắt giọng
+                .replace(/\|/g, ', ')       // Ngắt giọng ở các thanh đứng trong hồ sơ nhân vật
+                .replace(/✦/g, '')          // Xóa icon đi để máy không đọc bậy
+                .replace(/⚡/g, '')
+                .replace(/CẬP NHẬT:/g, 'Cập nhật, ') 
+                .replace(/\n/g, '. ');      // Xuống dòng chuyển thành dấu chấm hết câu
+
+            // 3. Băm nhỏ văn bản (Chunking) để tránh lỗi tự ngắt 15 giây của Chrome
+            // Chia đoạn văn thành các câu dựa vào dấu chấm.
+            let chunks = cleanText.split('.'); 
+            ttsQueue = chunks.map(t => t.trim() + '.').filter(t => t.length > 2); // Bỏ các câu quá ngắn
+
             isSpeaking = true;
             btn.classList.add('active');
             showToast("Đang đọc Chương " + currentChapter);
+            
+            // Bắt đầu đọc câu đầu tiên trong hàng đợi
+            playNextTTSChunk();
         }
 
+        function playNextTTSChunk() {
+            if (!isSpeaking || ttsQueue.length === 0) {
+                isSpeaking = false;
+                document.getElementById('tts-btn').classList.remove('active');
+                return;
+            }
+
+            let chunk = ttsQueue.shift(); // Lấy câu đầu tiên ra khỏi hàng đợi
+            let utterance = new SpeechSynthesisUtterance(chunk);
+            
+            utterance.lang = 'vi-VN';
+            utterance.rate = 1.05; 
+            
+            // Nếu đã tìm thấy giọng Tiếng Việt đích thực, ép gán vào đây
+            if (viVoice) utterance.voice = viVoice;
+
+            // Đọc xong câu này, tự động gọi đọc câu tiếp theo
+            utterance.onend = () => {
+                if (isSpeaking) playNextTTSChunk();
+            };
+
+            utterance.onerror = (e) => {
+                // Bỏ qua lỗi ngắt quãng khi người dùng bấm Stop
+                if(e.error !== 'interrupted' && e.error !== 'canceled') {
+                    console.error("Lỗi TTS:", e);
+                }
+            };
+
+            synth.speak(utterance);
+        }
+        
         // Gestures (Vuốt)
         let touchStartX = 0; let touchEndX = 0;
         document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, {passive: true});
