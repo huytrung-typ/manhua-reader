@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI Summary Reader</title>
     <style>
         :root {
@@ -10,72 +10,120 @@
             --accent: #7c3aed; --accent-hover: #6d28d9;
             --update-bg: rgba(234, 179, 8, 0.15); --update-border: #eab308;
         }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg-color); color: var(--text-color);
             margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center;
-            line-height: 1.7; font-size: 17px;
+            line-height: 1.6; font-size: 18px; /* Tăng size chữ cơ bản dễ đọc hơn */
+            -webkit-font-smoothing: antialiased;
         }
-        #container { width: 100%; max-width: 800px; padding: 20px; box-sizing: border-box; }
+        
+        #container { width: 100%; max-width: 800px; padding: 15px; box-sizing: border-box; }
+        
+        /* THANH ĐIỀU HƯỚNG MẶC ĐỊNH (PC) */
         .nav-bar {
             display: flex; justify-content: space-between; align-items: center;
-            background-color: var(--panel-bg); padding: 15px 20px; border-radius: 12px; margin-top: 10px;
-            position: sticky; top: 10px; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border: 1px solid #2a2e42;
+            background-color: rgba(30, 33, 48, 0.95); padding: 12px 20px; border-radius: 12px; margin-top: 10px;
+            position: sticky; top: 15px; z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.5); 
+            border: 1px solid #2a2e42; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
         }
+        
+        .nav-center { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+        
+        /* TỐI ƯU NÚT BẤM CẢM ỨNG */
         button {
-            background-color: var(--accent); color: white; border: none; padding: 8px 16px; border-radius: 8px;
-            font-weight: 600; cursor: pointer; transition: 0.2s;
+            background-color: var(--accent); color: white; border: none; 
+            padding: 0 16px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            min-height: 44px; /* Chuẩn tap target di động */
         }
-        button:hover { background-color: var(--accent-hover); transform: translateY(-1px); }
+        button:active { background-color: var(--accent-hover); transform: scale(0.96); }
+        
         select {
-            padding: 6px 10px; border-radius: 6px; border: 1px solid #474d66;
+            padding: 0 12px; border-radius: 8px; border: 1px solid #474d66;
             background: #141621; color: white; text-align: center; font-weight: bold;
-            font-size: 16px; cursor: pointer; outline: none;
+            font-size: 16px; cursor: pointer; outline: none; min-height: 44px;
+            appearance: none; -webkit-appearance: none;
         }
         select:focus { border-color: var(--accent); }
-        select option { background: #1e2130; }
-
-        #content-box { margin-top: 30px; padding-bottom: 100px; }
+        
+        #content-box { margin-top: 20px; padding-bottom: 60px; }
+        
         .section-title {
-            color: #38bdf8; font-size: 20px; font-weight: bold; text-transform: uppercase; margin: 40px 0 15px 0;
-            padding-bottom: 8px; border-bottom: 2px solid #1e293b; display: flex; align-items: center; gap: 8px;
+            color: #38bdf8; font-size: 19px; font-weight: bold; text-transform: uppercase; margin: 35px 0 15px 0;
+            padding-bottom: 8px; border-bottom: 2px solid #1e293b;
         }
-        .story-text { color: #cbd5e1; text-align: justify; margin-bottom: 15px; font-size: 1.05em; }
+        
+        .story-text { color: #cbd5e1; text-align: left; margin-bottom: 18px; } /* Căn trái trên đt dễ nhìn hơn */
+        
+        /* GIAO DIỆN THẺ NHÂN VẬT */
         .char-card { background: #1e2433; border-radius: 10px; margin-bottom: 15px; border: 1px solid #2d3748; overflow: hidden; }
-        .char-main { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-        .char-name { font-weight: bold; color: #f8fafc; font-size: 1.1em; margin-right: 10px; }
-        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.85em; font-weight: 600; background: #334155; color: #94a3b8; border: 1px solid #475569; }
-        .badge.tuvi { background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); }
-        .badge.status { background: rgba(34, 197, 94, 0.1); color: #4ade80; border-color: rgba(34, 197, 94, 0.3); }
+        .char-main { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .char-name { font-weight: bold; color: #f8fafc; font-size: 1.1em; margin-right: 4px; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.85em; font-weight: 600; background: #334155; color: #94a3b8; }
+        .badge.tuvi { background: rgba(56, 189, 248, 0.1); color: #38bdf8; }
+        .badge.status { background: rgba(34, 197, 94, 0.1); color: #4ade80; }
         .char-update { background: var(--update-bg); padding: 10px 16px; border-top: 1px dashed rgba(234, 179, 8, 0.3); border-left: 4px solid var(--update-border); color: #fde047; font-size: 0.95em; }
-        .char-update b { color: #facc15; margin-right: 5px; }
+        
         .clue-item { background: #1e1e2d; padding: 12px 16px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #ec4899; color: #e2e8f0; }
         .clue-item span { color: #ec4899; margin-right: 8px; font-weight: bold; }
+        
         .loading { color: #888; font-style: italic; text-align: center; margin-top: 50px; }
+        
         .toast {
-            visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center;
-            border-radius: 8px; padding: 12px; position: fixed; z-index: 1000; left: 50%; transform: translateX(-50%);
-            bottom: 30px; font-size: 15px; opacity: 0; transition: opacity 0.3s;
+            visibility: hidden; min-width: 200px; background-color: #334155; color: #fff; text-align: center;
+            border-radius: 30px; padding: 12px 20px; position: fixed; z-index: 1000; left: 50%; transform: translateX(-50%);
+            bottom: 90px; font-size: 15px; opacity: 0; transition: opacity 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
         }
         .toast.show { visibility: visible; opacity: 1; }
+
+        /* ========================================== */
+        /* RESPONSIVE CHO ĐIỆN THOẠI (DƯỚI 600PX) */
+        /* ========================================== */
+        @media (max-width: 600px) {
+            #container { padding: 10px; }
+            
+            /* Gắn thanh Nav xuống đáy màn hình */
+            .nav-bar {
+                position: fixed; top: auto; bottom: 0; left: 0; right: 0;
+                width: 100%; border-radius: 0; margin: 0; padding: 10px 15px;
+                box-sizing: border-box; border-top: 1px solid #2a2e42;
+                border-left: none; border-right: none; border-bottom: none;
+                padding-bottom: env(safe-area-inset-bottom, 10px); /* Hỗ trợ tai thỏ/Home bar iPhone */
+            }
+            
+            #content-box { padding-bottom: 110px; /* Chừa khoảng trống tránh bị Nav che mất chữ */ }
+            
+            .btn-text { display: none; } /* Ẩn chữ Trước/Sau cho gọn */
+            button { min-width: 50px; } /* Nút tròn/vuông hơn */
+            
+            .char-main { flex-direction: column; align-items: flex-start; gap: 6px; }
+            .badge { display: inline-block; }
+            
+            .toast { bottom: 80px; width: 80%; }
+        }
     </style>
 </head>
 <body>
     <div id="container">
-        <div class="nav-bar">
-            <button onclick="changeChapter(-1)">❮ Trước</button>
-            <div>
-                Chương 
-                <select id="chap-select" onchange="loadChapter(this.value)">
-                    <option value="1">Đang nạp file...</option>
-                </select>
-            </div>
-            <button onclick="changeChapter(1)">Sau ❯</button>
-        </div>
         <div id="content-box">
             <div class="loading">Đang tải file truyện từ máy chủ... Hãy chờ giây lát.</div>
         </div>
+        
+        <!-- Thanh điều hướng đã được cấu trúc lại -->
+        <div class="nav-bar">
+            <button onclick="changeChapter(-1)">❮ <span class="btn-text">Trước</span></button>
+            <div class="nav-center">
+                <span class="btn-text">Chương</span>
+                <select id="chap-select" onchange="loadChapter(this.value)">
+                    <option value="1">Đang nạp...</option>
+                </select>
+            </div>
+            <button onclick="changeChapter(1)"><span class="btn-text">Sau</span> ❯</button>
+        </div>
     </div>
+    
     <div id="toast" class="toast">Thông báo</div>
 
     <script>
@@ -87,33 +135,28 @@
             let toast = document.getElementById("toast");
             toast.textContent = msg;
             toast.className = "toast show";
-            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
+            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 2500);
         }
 
-        // Tải toàn bộ file text 1 lần duy nhất khi mở web
         async function fetchStoryFile() {
             try {
-                // Tên file .txt của bạn (phải để cùng thư mục với index.html)
                 const response = await fetch('tom_tat_van_co_chi_ton.txt');
-                if (!response.ok) throw new Error("Không tìm thấy file truyện");
+                if (!response.ok) throw new Error("Lỗi mạng");
                 
                 const fullText = await response.text();
                 parseFullText(fullText);
             } catch (e) {
                 document.getElementById('content-box').innerHTML = 
-                    `<div class="loading" style="color: #ef4444;">Lỗi: Không tìm thấy file <b>tom_tat_van_co_chi_ton.txt</b>.<br>Đảm bảo file này đã được đẩy lên GitHub cùng với index.html</div>`;
+                    `<div class="loading" style="color: #ef4444;">Lỗi: Không tìm thấy file <b>tom_tat_van_co_chi_ton.txt</b>.</div>`;
             }
         }
 
-        // Cắt nhỏ file text thành từng chương và lưu vào RAM (biến storyData)
         function parseFullText(text) {
-            // Cắt theo chữ "--- CHƯƠNG X ---"
             const parts = text.split(/---\s*CHƯƠNG\s+(\d+)\s*---/);
             
             for (let i = 1; i < parts.length; i += 2) {
                 let chapNum = parseInt(parts[i]);
-                let chapContent = parts[i+1];
-                storyData[chapNum] = chapContent;
+                storyData[chapNum] = parts[i+1];
                 availableChapters.push(chapNum);
             }
 
@@ -132,11 +175,10 @@
 
                 loadChapter(availableChapters[0]);
             } else {
-                document.getElementById('content-box').innerHTML = '<div class="loading" style="color: #ef4444;">File rỗng hoặc không đúng định dạng.</div>';
+                document.getElementById('content-box').innerHTML = '<div class="loading" style="color: #ef4444;">File rỗng!</div>';
             }
         }
 
-        // Trình render UI cho AI
         function parseAIContent(rawText) {
             let lines = rawText.split('\\n');
             let html = '';
@@ -183,7 +225,6 @@
             return html;
         }
 
-        // Hiển thị chương từ biến storyData
         function loadChapter(chapNum) {
             chapNum = parseInt(chapNum);
             currentChapter = chapNum;
@@ -195,31 +236,22 @@
                 contentBox.innerHTML = parseAIContent(storyData[chapNum]); 
                 if(chapSelect) chapSelect.value = currentChapter;
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-            } else {
-                contentBox.innerHTML = `<div class="loading" style="color: #ef4444;">Lỗi: Không tìm thấy dữ liệu chương ${chapNum}.</div>`;
             }
         }
 
         function changeChapter(step) {
             if (availableChapters.length === 0) return;
-
             let currentIndex = availableChapters.indexOf(currentChapter);
             let nextIndex = currentIndex + step;
 
             if (nextIndex < 0) {
-                showToast("Đây là chương đầu tiên rồi!");
-                return;
+                showToast("Đây là chương đầu tiên rồi!"); return;
             }
             if (nextIndex >= availableChapters.length) {
-                showToast("Đã đến chương cuối cùng của truyện!");
-                return;
+                showToast("Đã đến chương cuối cùng!"); return;
             }
 
             let nextChapNum = availableChapters[nextIndex];
-            if (nextChapNum - currentChapter > 1 && step > 0) {
-                showToast(`Phát hiện thiếu chương! Đã nhảy vọt từ ${currentChapter} lên ${nextChapNum}`);
-            }
-            
             loadChapter(nextChapNum);
         }
 
