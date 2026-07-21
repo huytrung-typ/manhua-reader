@@ -180,7 +180,8 @@
         }
 
         function parseAIContent(rawText) {
-            let lines = rawText.split('\\n');
+            // Đã sửa \\n thành \n ở dòng dưới đây
+            let lines = rawText.split('\n');
             let html = '';
             
             for (let i = 0; i < lines.length; i++) {
