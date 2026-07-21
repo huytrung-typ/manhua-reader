@@ -107,11 +107,8 @@
 </head>
 <body>
     <div id="container">
-        <div id="content-box">
-            <div class="loading">Đang tải file truyện từ máy chủ... Hãy chờ giây lát.</div>
-        </div>
         
-        <!-- Thanh điều hướng đã được cấu trúc lại -->
+        <!-- 1. Đưa thanh Nav-bar lên trên cùng để PC hiển thị đúng ở top -->
         <div class="nav-bar">
             <button onclick="changeChapter(-1)">❮ <span class="btn-text">Trước</span></button>
             <div class="nav-center">
@@ -122,6 +119,12 @@
             </div>
             <button onclick="changeChapter(1)"><span class="btn-text">Sau</span> ❯</button>
         </div>
+
+        <!-- 2. Phần nội dung truyện nằm bên dưới -->
+        <div id="content-box">
+            <div class="loading">Đang tải file truyện từ máy chủ... Hãy chờ giây lát.</div>
+        </div>
+        
     </div>
     
     <div id="toast" class="toast">Thông báo</div>
