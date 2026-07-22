@@ -1196,7 +1196,7 @@
         }
 
         function parseFullText(text) {
-            const parts = text.split(/---\s*CHƯƠNG\s+(\d+)\s*---/);
+            const parts = text.split(/---\s*(?:CHƯƠNG|CHUONG)\s+(\d+)\s*---/i);
             for (let i = 1; i < parts.length; i += 2) {
                 let cNum = parseInt(parts[i]);
                 storyData[cNum] = parts[i + 1];
@@ -1225,25 +1225,25 @@
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
                 if (!line) continue;
-                if (line.includes('[DIỄN BIẾN CHÍNH]')) html += '<div class="section-title section-story">📜 Diễn Biến Chính</div>';
-                else if (line.includes('[HỒ SƠ TÌNH TRẠNG & TIẾN HÓA]')) html += '<div class="section-title">👤 Hồ Sơ Nhân Vật</div>';
-                else if (line.includes('[MANH MỐI & BÍ ẨN]')) html += '<div class="section-title">🔍 Manh Mối & Bí Ẩn</div>';
+                if (line.includes('[DIỄN BIẾN CHÍNH]') || line.includes('[DIEN BIEN CHINH]')) html += '<div class="section-title section-story">📜 Diễn Biến Chính</div>';
+                else if (line.includes('[HỒ SƠ TÌNH TRẠNG & TIẾN HÓA]') || line.includes('[HO SO TINH TRANG & TIEN HOA]')) html += '<div class="section-title">👤 Hồ Sơ Nhân Vật</div>';
+                else if (line.includes('[MANH MỐI & BÍ ẨN]') || line.includes('[MANH MOI & BI AN]')) html += '<div class="section-title">🔍 Manh Mối & Bí Ẩn</div>';
                 else if (line.startsWith('- ')) {
                     let p = line.substring(2).split('|').map(s => s.trim());
-                    let thanPhan = p[1] ? `<span class="badge">👤 ${p[1].replace(/Thân phận:\s*/i, '')}</span>` : '';
-                    let tuvi = p[2] ? `<span class="badge tuvi">⚔ ${p[2].replace(/Tu vi:\s*/i, '')}</span>` : '';
-                    let statusText = p[3] ? p[3].replace(/Trạng thái:\s*/i, '') : '';
+                    let thanPhan = p[1] ? `<span class="badge">👤 ${p[1].replace(/(Thân phận|Than phan):\s*/i, '')}</span>` : '';
+                    let tuvi = p[2] ? `<span class="badge tuvi">⚔ ${p[2].replace(/(Tu vi):\s*/i, '')}</span>` : '';
+                    let statusText = p[3] ? p[3].replace(/(Trạng thái|Trang thai):\s*/i, '') : '';
                     let statusClass = statusText.includes('Chết') ? 'badge dead' : 'badge status';
                     let statusIcon = statusText.includes('Chết') ? '💀' : '❤';
                     let st = statusText ? `<span class="${statusClass}">${statusIcon} ${statusText}</span>` : '';
                     html += `<details class="char-card"><summary class="char-main"><span class="char-name">${p[0] || 'Vô danh'}</span> ${thanPhan} ${tuvi} ${st}</summary>`;
-                    if (i + 1 < lines.length && (lines[i + 1].includes('↳') || lines[i + 1].includes('CẬP NHẬT'))) {
-                        html += `<div class="char-update"><b>⚡ Cập nhật:</b> ${lines[++i].replace(/↳|⚠|CẬP NHẬT:/g, '').trim()}</div>`;
+                    if (i + 1 < lines.length && (lines[i + 1].includes('↳') || lines[i + 1].includes('CẬP NHẬT') || lines[i + 1].includes('CAP NHAT'))) {
+                        html += `<div class="char-update"><b>⚡ Cập nhật:</b> ${lines[++i].replace(/↳|⚠|CẬP NHẬT:|->|CAP NHAT:/gi, '').trim()}</div>`;
                     } else html += `<div class="char-update">Không có ghi nhận mới.</div>`;
                     html += `</details>`;
                 }
-                else if (line.startsWith('✦')) html += `<div class="clue-item"><span class="clue-icon">✦</span> ${line.substring(1).trim()}</div>`;
-                else if (!line.includes('↳') && !line.includes('CẬP NHẬT:')) {
+                else if (line.startsWith('✦') || line.startsWith('* ')) html += `<div class="clue-item"><span class="clue-icon">✦</span> ${line.substring(1).trim()}</div>`;
+                else if (!line.includes('↳') && !line.includes('CẬP NHẬT:') && !line.includes('CAP NHAT:')) {
                     html += `<p class="story-text">${line.replace(/(Lý Vân Tiêu)/g, '<span class="highlight">$1</span>')}</p>`;
                 }
             }
@@ -1384,9 +1384,9 @@
             let cleanText = rawText
                 .replace(/-/g, '. ')        // Biến dấu trừ thành dấu chấm để ngắt nghỉ hẳn
                 .replace(/\|/g, '. ')       // Đổi gạch đứng thành chấm để ngắt câu
-                .replace(/✦/g, '')          // Xóa icon đi để máy không đọc bậy
+                .replace(/✦|\*/g, '')       // Xóa icon đi để máy không đọc bậy
                 .replace(/⚡/g, '')
-                .replace(/CẬP NHẬT:/g, 'Cập nhật. ')
+                .replace(/CẬP NHẬT:|CAP NHAT:/g, 'Cập nhật. ')
                 .replace(/\n/g, '. ');      // Xuống dòng chuyển thành dấu chấm hết câu
 
             // 3. Băm nhỏ văn bản (Chunking) để tránh lỗi API và tạo khoảng nghỉ
