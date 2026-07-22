@@ -15,12 +15,14 @@
             --panel-bg: #1e2130;
             --accent: #7c3aed;
             --accent-hover: #6d28d9;
+            --accent-glow: rgba(124, 58, 237, 0.4);
             --update-bg: rgba(234, 179, 8, 0.15);
             --update-border: #eab308;
             --card-bg: #1e2433;
             --card-border: #2d3748;
             --clue-bg: #1e1e2d;
             --input-bg: #0f111a;
+            --glass-bg: rgba(30, 33, 48, 0.85);
             --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             --font-size: 18px;
         }
@@ -31,12 +33,14 @@
             --panel-bg: #e8dcc4;
             --accent: #b45309;
             --accent-hover: #92400e;
+            --accent-glow: rgba(180, 83, 9, 0.3);
             --update-bg: rgba(217, 119, 6, 0.15);
             --update-border: #d97706;
             --card-bg: #eaddc5;
             --card-border: #d1c3a7;
             --clue-bg: #eaddc5;
             --input-bg: #f4ecd8;
+            --glass-bg: rgba(232, 220, 196, 0.85);
         }
 
         [data-theme="oled"] {
@@ -45,12 +49,46 @@
             --panel-bg: #0a0a0a;
             --accent: #3b82f6;
             --accent-hover: #2563eb;
+            --accent-glow: rgba(59, 130, 246, 0.35);
             --update-bg: rgba(234, 179, 8, 0.1);
             --update-border: #ca8a04;
             --card-bg: #050505;
             --card-border: #1f2937;
             --clue-bg: #050505;
             --input-bg: #000000;
+            --glass-bg: rgba(10, 10, 10, 0.9);
+        }
+
+        [data-theme="purple"] {
+            --bg-color: #12061f;
+            --text-color: #e0d4f5;
+            --panel-bg: #1c0e33;
+            --accent: #a855f7;
+            --accent-hover: #9333ea;
+            --accent-glow: rgba(168, 85, 247, 0.4);
+            --update-bg: rgba(168, 85, 247, 0.12);
+            --update-border: #a855f7;
+            --card-bg: #1a0d2e;
+            --card-border: #2e1a4a;
+            --clue-bg: #1a0d2e;
+            --input-bg: #12061f;
+            --glass-bg: rgba(28, 14, 51, 0.85);
+        }
+
+        [data-theme="light"] {
+            --bg-color: #f8fafc;
+            --text-color: #1e293b;
+            --panel-bg: #ffffff;
+            --accent: #6366f1;
+            --accent-hover: #4f46e5;
+            --accent-glow: rgba(99, 102, 241, 0.3);
+            --update-bg: rgba(234, 179, 8, 0.12);
+            --update-border: #f59e0b;
+            --card-bg: #f1f5f9;
+            --card-border: #e2e8f0;
+            --clue-bg: #f1f5f9;
+            --input-bg: #f8fafc;
+            --glass-bg: rgba(255, 255, 255, 0.88);
         }
 
         body {
@@ -75,15 +113,29 @@
             box-sizing: border-box;
         }
 
+        /* === PROGRESS BAR GRADIENT + GLOW === */
         #progress-bar {
             position: fixed;
             top: 0;
             left: 0;
             height: 3px;
-            background: var(--accent);
+            background: linear-gradient(90deg, var(--accent), #ec4899, #f59e0b, var(--accent));
+            background-size: 300% 100%;
+            animation: progressGlow 3s linear infinite;
             width: 0%;
             z-index: 9999;
+            box-shadow: 0 0 12px var(--accent-glow), 0 0 4px var(--accent-glow);
             transition: width 0.1s;
+        }
+
+        @keyframes progressGlow {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            100% {
+                background-position: 300% 50%;
+            }
         }
 
         /* TOOLBAR NỔI BÊN PHẢI */
@@ -110,7 +162,13 @@
             font-size: 20px;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-            transition: 0.2s;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        .tool-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
         }
 
         .tool-btn:active {
@@ -121,6 +179,31 @@
             background: var(--accent);
             color: white;
             border-color: var(--accent);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        /* Tooltip cho desktop */
+        .tool-btn::before {
+            content: attr(title);
+            position: absolute;
+            right: 56px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--panel-bg);
+            color: var(--text-color);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            border: 1px solid var(--card-border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .tool-btn:hover::before {
+            opacity: 1;
         }
 
         #btt-btn {
@@ -171,6 +254,29 @@
             min-height: auto;
         }
 
+        /* Tìm kiếm trong sidebar */
+        .sidebar-search {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .sidebar-search input {
+            width: 100%;
+            padding: 10px 14px;
+            box-sizing: border-box;
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            background: var(--input-bg);
+            color: var(--text-color);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .sidebar-search input:focus {
+            border-color: var(--accent);
+        }
+
         #toc-list {
             flex: 1;
             overflow-y: auto;
@@ -179,11 +285,54 @@
             margin: 0;
         }
 
+        .toc-group-header {
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 1px;
+            opacity: 0.8;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .toc-group-header:hover {
+            opacity: 1;
+        }
+
+        .toc-group-header .arrow {
+            transition: transform 0.2s;
+            font-size: 10px;
+        }
+
+        .toc-group-header.collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+
+        .toc-group {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .toc-group.collapsed {
+            max-height: 0 !important;
+        }
+
         .toc-item {
             padding: 12px 20px;
             cursor: pointer;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            transition: 0.2s;
+            transition: all 0.2s;
+        }
+
+        .toc-item:hover {
+            background: rgba(124, 58, 237, 0.05);
+            padding-left: 24px;
         }
 
         .toc-item:active {
@@ -198,18 +347,21 @@
             background: rgba(124, 58, 237, 0.1);
         }
 
+        /* === NAV BAR GLASSMORPHISM === */
         .nav-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background-color: var(--panel-bg);
+            background-color: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             padding: 12px 20px;
             border-radius: 12px;
             margin-top: 15px;
             position: sticky;
             top: 15px;
             z-index: 90;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
             border: 1px solid var(--card-border);
         }
 
@@ -229,7 +381,7 @@
             border-radius: 8px;
             font-weight: 600;
             cursor: pointer;
-            transition: 0.2s;
+            transition: all 0.2s;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -237,13 +389,22 @@
             min-height: 44px;
         }
 
+        button:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
         #chap-btn {
             background: var(--input-bg);
             border: 1px solid var(--card-border);
             color: var(--text-color);
             width: 100%;
-            max-width: 180px;
-            font-size: 16px;
+            max-width: 220px;
+            font-size: 14px;
             justify-content: space-between;
             padding: 0 15px;
         }
@@ -260,6 +421,11 @@
             padding-bottom: 30px;
         }
 
+        /* Smooth page transition */
+        .chapter-wrapper.fade-out {
+            animation: fadeOut 0.25s ease-in forwards;
+        }
+
         @keyframes fadeIn {
             from {
                 opacity: 0;
@@ -269,6 +435,18 @@
             to {
                 opacity: 1;
                 transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-20px);
             }
         }
 
@@ -290,14 +468,31 @@
             margin: 0 15px;
         }
 
+        /* === SECTION TITLE PILL STYLE === */
         .section-title {
             color: #38bdf8;
-            font-size: 1.1em;
+            font-size: 0.95em;
             font-weight: bold;
             text-transform: uppercase;
             margin: 35px 0 15px 0;
-            padding-bottom: 8px;
-            border-bottom: 2px solid var(--card-border);
+            padding: 10px 18px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.08), rgba(124, 58, 237, 0.08));
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            border-bottom: 2px solid rgba(56, 189, 248, 0.25);
+            letter-spacing: 0.5px;
+        }
+
+        [data-theme="sepia"] .section-title {
+            color: var(--accent);
+            background: linear-gradient(135deg, rgba(180, 83, 9, 0.08), rgba(217, 119, 6, 0.08));
+            border-color: rgba(180, 83, 9, 0.2);
+        }
+
+        [data-theme="light"] .section-title {
+            color: var(--accent);
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(168, 85, 247, 0.06));
+            border-color: rgba(99, 102, 241, 0.15);
         }
 
         .story-text {
@@ -314,12 +509,24 @@
             color: #b91c1c;
         }
 
+        [data-theme="light"] .highlight {
+            color: #db2777;
+        }
+
+        /* === CHARACTER CARD NÂNG CẤP === */
         .char-card {
             background: var(--card-bg);
             border-radius: 10px;
             margin-bottom: 15px;
             border: 1px solid var(--card-border);
             overflow: hidden;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .char-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 4px 20px var(--accent-glow);
+            transform: translateY(-2px);
         }
 
         .char-main {
@@ -330,6 +537,11 @@
             align-items: center;
             cursor: pointer;
             list-style: none;
+            transition: background 0.2s;
+        }
+
+        .char-main:hover {
+            background: rgba(124, 58, 237, 0.04);
         }
 
         .char-main::-webkit-details-marker {
@@ -342,10 +554,28 @@
             font-size: 12px;
             color: var(--text-color);
             opacity: 0.5;
+            transition: transform 0.3s ease;
         }
 
         details[open] .char-main::after {
             content: '▲';
+            transform: rotate(180deg);
+        }
+
+        details[open] .char-update {
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+
+            to {
+                opacity: 1;
+                max-height: 200px;
+            }
         }
 
         .char-name {
@@ -361,6 +591,7 @@
             font-weight: 600;
             background: #334155;
             color: #94a3b8;
+            transition: all 0.2s;
         }
 
         .badge.tuvi {
@@ -373,6 +604,11 @@
             color: #4ade80;
         }
 
+        .badge.dead {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
         .char-update {
             background: var(--update-bg);
             padding: 12px 16px;
@@ -381,12 +617,29 @@
             font-size: 0.95em;
         }
 
+        /* === CLUE ITEM NÂNG CẤP === */
         .clue-item {
             background: var(--clue-bg);
             padding: 12px 16px;
             border-radius: 8px;
             margin-bottom: 10px;
             border-left: 3px solid #ec4899;
+            transition: all 0.25s;
+        }
+
+        .clue-item:hover {
+            border-left-width: 5px;
+            box-shadow: 0 2px 15px rgba(236, 72, 153, 0.15);
+            transform: translateX(3px);
+        }
+
+        .clue-item .clue-icon {
+            background: linear-gradient(135deg, #ec4899, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+            margin-right: 4px;
         }
 
         .loading {
@@ -396,28 +649,64 @@
             margin-top: 50px;
         }
 
+        /* Loading spinner cho infinity scroll */
+        .scroll-loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--accent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .scroll-loading.visible {
+            opacity: 1;
+        }
+
+        .scroll-loading .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--card-border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* === TOAST SLIDE-UP ANIMATION === */
         .toast {
             visibility: hidden;
             min-width: 200px;
-            background-color: #334155;
-            color: #fff;
+            background-color: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            color: var(--text-color);
             text-align: center;
             border-radius: 30px;
             padding: 12px 20px;
             position: fixed;
             z-index: 5000;
             left: 50%;
-            transform: translateX(-50%);
+            transform: translateX(-50%) translateY(20px);
             bottom: 90px;
             font-size: 15px;
             opacity: 0;
-            transition: opacity 0.3s;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--card-border);
         }
 
         .toast.show {
             visibility: visible;
             opacity: 1;
+            transform: translateX(-50%) translateY(0);
         }
 
         /* BẢNG ĐIỀU KHIỂN & CÀI ĐẶT */
@@ -480,6 +769,7 @@
 
         #chap-input:focus {
             border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
         }
 
         .modal-buttons {
@@ -537,6 +827,18 @@
             text-align: center;
         }
 
+        /* === FOCUS MODE === */
+        body.focus-mode .section-title:not(.section-story),
+        body.focus-mode .char-card,
+        body.focus-mode .char-update,
+        body.focus-mode .clue-item {
+            display: none !important;
+        }
+
+        body.focus-mode .section-title.section-story {
+            display: block !important;
+        }
+
         @media (max-width: 600px) {
             #container {
                 padding: 10px;
@@ -580,6 +882,11 @@
                 bottom: 100px;
                 width: 80%;
             }
+
+            /* Ẩn tooltip trên mobile */
+            .tool-btn::before {
+                display: none;
+            }
         }
     </style>
 </head>
@@ -593,6 +900,9 @@
             <span>Mục lục</span>
             <button class="close-sidebar" onclick="toggleSidebar()">×</button>
         </div>
+        <div class="sidebar-search">
+            <input type="text" id="toc-search" placeholder="🔍 Tìm chương..." oninput="filterToc(this.value)">
+        </div>
         <ul id="toc-list"></ul>
     </div>
     <div id="sidebar-overlay" class="modal-backdrop" onclick="toggleSidebar()"></div>
@@ -601,6 +911,7 @@
     <div class="floating-tools">
         <button class="tool-btn" onclick="openSettings()" title="Cài đặt giao diện">Aa</button>
         <button class="tool-btn" onclick="toggleSidebar()" title="Mục lục">☰</button>
+        <button id="focus-btn" class="tool-btn" onclick="toggleFocusMode()" title="Chế độ tập trung">👁</button>
         <button id="tts-btn" class="tool-btn" onclick="toggleTTS()" title="Nghe truyện">🎧</button>
         <button id="autoscroll-btn" class="tool-btn" onclick="toggleAutoScroll()" title="Cuộn tự động">⬇️</button>
         <button id="btt-btn" class="tool-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})"
@@ -620,6 +931,10 @@
 
         <div id="content-box">
             <div class="loading">Đang tải dữ liệu truyện...</div>
+        </div>
+        <!-- Loading spinner cho infinity scroll -->
+        <div id="scroll-loading" class="scroll-loading">
+            <span class="spinner"></span> Đang tải chương tiếp...
         </div>
         <!-- Điểm neo dùng để kích hoạt tải Infinity Scroll -->
         <div id="scroll-anchor" style="height: 50px; width: 100%;"></div>
@@ -661,6 +976,8 @@
                     <button style="width: 100%;" onclick="changeTheme('dark')" data-val="dark">🌙 Ban đêm</button>
                     <button style="width: 100%;" onclick="changeTheme('sepia')" data-val="sepia">📜 Sách cổ</button>
                     <button style="width: 100%;" onclick="changeTheme('oled')" data-val="oled">🔋 OLED Đen</button>
+                    <button style="width: 100%;" onclick="changeTheme('purple')" data-val="purple">🔮 Tử Đằng</button>
+                    <button style="width: 100%;" onclick="changeTheme('light')" data-val="light">☀️ Ban ngày</button>
                 </div>
             </div>
             <div class="setting-group">
@@ -698,8 +1015,9 @@
 
         function showToast(msg) {
             let toast = document.getElementById("toast");
-            toast.textContent = msg; toast.className = "toast show";
-            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 2500);
+            toast.textContent = msg;
+            toast.className = "toast show";
+            setTimeout(() => { toast.className = "toast"; }, 2500);
         }
 
         // --- CÀI ĐẶT ---
@@ -725,18 +1043,34 @@
         function changeTheme(t) { cfg.theme = t; localStorage.setItem('reader_theme', t); initSettings(); }
         function changeScrollSpeed(s) { cfg.speed = Math.max(0.5, Math.min(5, cfg.speed + s)); localStorage.setItem('reader_speed', cfg.speed); initSettings(); }
 
+        // --- FOCUS MODE ---
+        let isFocusMode = false;
+        function toggleFocusMode() {
+            isFocusMode = !isFocusMode;
+            document.body.classList.toggle('focus-mode', isFocusMode);
+            document.getElementById('focus-btn').classList.toggle('active', isFocusMode);
+            showToast(isFocusMode ? "Chế độ tập trung: BẬT" : "Chế độ tập trung: TẮT");
+        }
+
         // --- OBSERVER ĐỂ CẬP NHẬT CHƯƠNG KHI CUỘN VÔ CỰC (Auto Bookmark) ---
         const chapterObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting && entry.intersectionRatio >= 0.3) {
                     let activeChap = parseInt(entry.target.dataset.chap);
                     currentChapter = activeChap;
-                    document.getElementById('chap-btn').innerHTML = `<span>Chương ${activeChap}</span> <span>▾</span>`;
+                    updateChapBtn(activeChap);
                     localStorage.setItem('reader_last_chap', activeChap); // Lưu Auto-Bookmark
                     highlightToc(activeChap);
                 }
             });
         }, { threshold: 0.3 }); // Kích hoạt khi 30% nội dung chương hiện trên màn hình
+
+        // Cập nhật nút chương với tổng số chương
+        function updateChapBtn(chap) {
+            let total = availableChapters.length;
+            let idx = availableChapters.indexOf(chap) + 1;
+            document.getElementById('chap-btn').innerHTML = `<span>Chương ${chap} <span style="opacity:0.5;font-size:12px">(${idx}/${total})</span></span> <span>▾</span>`;
+        }
 
         // --- INFINITY SCROLL ĐỂ TỰ ĐỘNG TẢI CHƯƠNG MỚI ---
         const endObserver = new IntersectionObserver((entries) => {
@@ -754,6 +1088,7 @@
 
             if (nextIndex < availableChapters.length) {
                 isLoadingNext = true;
+                document.getElementById('scroll-loading').classList.add('visible');
                 let nextChap = availableChapters[nextIndex];
 
                 let div = document.createElement('div');
@@ -764,7 +1099,10 @@
                 document.getElementById('content-box').appendChild(div);
                 chapterObserver.observe(div); // Theo dõi thẻ div mới này
 
-                setTimeout(() => { isLoadingNext = false; }, 100);
+                setTimeout(() => {
+                    isLoadingNext = false;
+                    document.getElementById('scroll-loading').classList.remove('visible');
+                }, 100);
             }
         }
 
@@ -779,12 +1117,73 @@
             }
         }
 
+        // --- MỤC LỤC VỚI NHÓM CHƯƠNG ---
+        const GROUP_SIZE = 50;
+
         function buildToc() {
             let html = '';
-            availableChapters.forEach(c => {
-                html += `<li class="toc-item" data-id="${c}" onclick="loadChapter(${c}); toggleSidebar();">Chương ${c}</li>`;
-            });
+            if (availableChapters.length > GROUP_SIZE) {
+                // Nhóm chương
+                let groups = {};
+                availableChapters.forEach(c => {
+                    let groupIdx = Math.floor((c - 1) / GROUP_SIZE);
+                    let start = groupIdx * GROUP_SIZE + 1;
+                    let end = Math.min(start + GROUP_SIZE - 1, availableChapters[availableChapters.length - 1]);
+                    let key = `${start}-${end}`;
+                    if (!groups[key]) groups[key] = [];
+                    groups[key].push(c);
+                });
+                for (let key in groups) {
+                    html += `<div class="toc-group-header" onclick="toggleTocGroup(this)"><span>Chương ${key}</span><span class="arrow">▼</span></div>`;
+                    html += `<div class="toc-group" style="max-height: 9999px;">`;
+                    groups[key].forEach(c => {
+                        html += `<li class="toc-item" data-id="${c}" onclick="loadChapter(${c}); toggleSidebar();">Chương ${c}</li>`;
+                    });
+                    html += `</div>`;
+                }
+            } else {
+                availableChapters.forEach(c => {
+                    html += `<li class="toc-item" data-id="${c}" onclick="loadChapter(${c}); toggleSidebar();">Chương ${c}</li>`;
+                });
+            }
             document.getElementById('toc-list').innerHTML = html;
+        }
+
+        function toggleTocGroup(header) {
+            header.classList.toggle('collapsed');
+            let group = header.nextElementSibling;
+            group.classList.toggle('collapsed');
+        }
+
+        function filterToc(query) {
+            query = query.trim();
+            let items = document.querySelectorAll('.toc-item');
+            let groups = document.querySelectorAll('.toc-group');
+            let headers = document.querySelectorAll('.toc-group-header');
+
+            if (!query) {
+                items.forEach(el => el.style.display = '');
+                groups.forEach(el => el.style.display = '');
+                headers.forEach(el => el.style.display = '');
+                return;
+            }
+
+            items.forEach(el => {
+                let match = el.textContent.includes(query) || el.dataset.id === query;
+                el.style.display = match ? '' : 'none';
+            });
+
+            // Ẩn nhóm nếu không có item nào hiển thị
+            groups.forEach((group, i) => {
+                let hasVisible = Array.from(group.querySelectorAll('.toc-item')).some(el => el.style.display !== 'none');
+                group.style.display = hasVisible ? '' : 'none';
+                if (headers[i]) headers[i].style.display = hasVisible ? '' : 'none';
+                // Mở nhóm khi tìm kiếm
+                if (hasVisible) {
+                    group.classList.remove('collapsed');
+                    if (headers[i]) headers[i].classList.remove('collapsed');
+                }
+            });
         }
 
         function highlightToc(chap) {
@@ -826,21 +1225,24 @@
             for (let i = 0; i < lines.length; i++) {
                 let line = lines[i].trim();
                 if (!line) continue;
-                if (line.includes('[DIỄN BIẾN CHÍNH]')) html += '<div class="section-title">📜 Diễn Biến Chính</div>';
+                if (line.includes('[DIỄN BIẾN CHÍNH]')) html += '<div class="section-title section-story">📜 Diễn Biến Chính</div>';
                 else if (line.includes('[HỒ SƠ TÌNH TRẠNG & TIẾN HÓA]')) html += '<div class="section-title">👤 Hồ Sơ Nhân Vật</div>';
                 else if (line.includes('[MANH MỐI & BÍ ẨN]')) html += '<div class="section-title">🔍 Manh Mối & Bí Ẩn</div>';
                 else if (line.startsWith('- ')) {
                     let p = line.substring(2).split('|').map(s => s.trim());
-                    let thanPhan = p[1] ? `<span class="badge">${p[1].replace(/Thân phận:\s*/i, '')}</span>` : '';
-                    let tuvi = p[2] ? `<span class="badge tuvi">${p[2].replace(/Tu vi:\s*/i, '')}</span>` : '';
-                    let st = p[3] ? `<span class="badge status">${p[3].replace(/Trạng thái:\s*/i, '')}</span>` : '';
+                    let thanPhan = p[1] ? `<span class="badge">👤 ${p[1].replace(/Thân phận:\s*/i, '')}</span>` : '';
+                    let tuvi = p[2] ? `<span class="badge tuvi">⚔ ${p[2].replace(/Tu vi:\s*/i, '')}</span>` : '';
+                    let statusText = p[3] ? p[3].replace(/Trạng thái:\s*/i, '') : '';
+                    let statusClass = statusText.includes('Chết') ? 'badge dead' : 'badge status';
+                    let statusIcon = statusText.includes('Chết') ? '💀' : '❤';
+                    let st = statusText ? `<span class="${statusClass}">${statusIcon} ${statusText}</span>` : '';
                     html += `<details class="char-card"><summary class="char-main"><span class="char-name">${p[0] || 'Vô danh'}</span> ${thanPhan} ${tuvi} ${st}</summary>`;
                     if (i + 1 < lines.length && (lines[i + 1].includes('↳') || lines[i + 1].includes('CẬP NHẬT'))) {
                         html += `<div class="char-update"><b>⚡ Cập nhật:</b> ${lines[++i].replace(/↳|⚠|CẬP NHẬT:/g, '').trim()}</div>`;
                     } else html += `<div class="char-update">Không có ghi nhận mới.</div>`;
                     html += `</details>`;
                 }
-                else if (line.startsWith('✦')) html += `<div class="clue-item"><span>✦</span> ${line.substring(1).trim()}</div>`;
+                else if (line.startsWith('✦')) html += `<div class="clue-item"><span class="clue-icon">✦</span> ${line.substring(1).trim()}</div>`;
                 else if (!line.includes('↳') && !line.includes('CẬP NHẬT:')) {
                     html += `<p class="story-text">${line.replace(/(Lý Vân Tiêu)/g, '<span class="highlight">$1</span>')}</p>`;
                 }
@@ -852,27 +1254,42 @@
         function loadChapter(chapNum) {
             chapNum = parseInt(chapNum);
             if (storyData[chapNum]) {
-                currentChapter = chapNum;
                 let cBox = document.getElementById('content-box');
 
-                // Hủy theo dõi các chương cũ
-                document.querySelectorAll('.chapter-wrapper').forEach(el => chapterObserver.unobserve(el));
+                // Smooth page transition
+                let oldWrappers = cBox.querySelectorAll('.chapter-wrapper');
+                if (oldWrappers.length > 0) {
+                    oldWrappers.forEach(el => {
+                        chapterObserver.unobserve(el);
+                        el.classList.add('fade-out');
+                    });
 
-                let div = document.createElement('div');
-                div.className = 'chapter-wrapper';
-                div.dataset.chap = chapNum;
-                div.innerHTML = parseAIContent(storyData[chapNum]);
-
-                cBox.innerHTML = '';
-                cBox.appendChild(div);
-
-                chapterObserver.observe(div);
-                localStorage.setItem('reader_last_chap', chapNum);
-
-                document.getElementById('chap-btn').innerHTML = `<span>Chương ${currentChapter}</span> <span>▾</span>`;
-                highlightToc(chapNum);
-                window.scrollTo({ top: 0, behavior: 'auto' });
+                    setTimeout(() => {
+                        renderNewChapter(chapNum, cBox);
+                    }, 250);
+                } else {
+                    renderNewChapter(chapNum, cBox);
+                }
             }
+        }
+
+        function renderNewChapter(chapNum, cBox) {
+            currentChapter = chapNum;
+
+            let div = document.createElement('div');
+            div.className = 'chapter-wrapper';
+            div.dataset.chap = chapNum;
+            div.innerHTML = parseAIContent(storyData[chapNum]);
+
+            cBox.innerHTML = '';
+            cBox.appendChild(div);
+
+            chapterObserver.observe(div);
+            localStorage.setItem('reader_last_chap', chapNum);
+
+            updateChapBtn(chapNum);
+            highlightToc(chapNum);
+            window.scrollTo({ top: 0, behavior: 'auto' });
         }
 
         function changeChapter(step) {
