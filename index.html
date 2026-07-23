@@ -1162,7 +1162,13 @@
                 </div>
             </div>
             <div class="setting-group">
-                <label>🎤 Giọng đọc TTS</label>
+                <label>⚙️ Nguồn âm thanh (TTS Engine)</label>
+                <select id="tts-engine-select" onchange="changeTTSEngine(this.value)"
+                    style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-color);font-size:14px;outline:none;cursor:pointer;margin-bottom:10px;">
+                    <option value="system">Hệ thống (Mặc định - Ngắt khi ẩn app)</option>
+                    <option value="google">Google API (Phát nền khi tắt màn hình)</option>
+                </select>
+                <label>🎤 Giọng đọc (chỉ áp dụng cho Hệ thống)</label>
                 <select id="voice-select" onchange="selectVoice(this.value)"
                     style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-color);font-size:14px;outline:none;cursor:pointer;"></select>
             </div>
@@ -1198,7 +1204,8 @@
             theme: localStorage.getItem('reader_theme') || 'dark',
             speed: parseFloat(localStorage.getItem('reader_speed')) || 1.0,
             ttsRate: parseFloat(localStorage.getItem('reader_ttsRate')) || 1.0,
-            ttsVoice: localStorage.getItem('reader_ttsVoice') || ''
+            ttsVoice: localStorage.getItem('reader_ttsVoice') || '',
+            ttsEngine: localStorage.getItem('reader_ttsEngine') || (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'google' : 'system')
         };
 
         function showToast(msg) {
@@ -1217,6 +1224,9 @@
             let fontStr = cfg.font === 'serif' ? 'Georgia, "Times New Roman", serif' : "-apple-system, BlinkMacSystemFont, sans-serif";
             document.documentElement.style.setProperty('--font-family', fontStr);
             document.documentElement.setAttribute('data-theme', cfg.theme);
+
+            if (document.getElementById('tts-rate-display')) document.getElementById('tts-rate-display').textContent = cfg.ttsRate.toFixed(1);
+            if (document.getElementById('tts-engine-select')) document.getElementById('tts-engine-select').value = cfg.ttsEngine;
 
             updateActiveButtons('font-controls', cfg.font);
             updateActiveButtons('theme-controls', cfg.theme);
@@ -1542,16 +1552,16 @@
         // TÍNH NĂNG TTS (ĐỌC TRUYỆN - FIX MOBILE)
         // ==========================================
         let synth = window.speechSynthesis;
+        let googleAudio = new Audio(); // HTML5 Audio cho chạy nền
         let isSpeaking = false;
         let ttsQueue = [];
         let viVoice = null;
-        let currentAudio = null;
         let ttsKeepAlive = null;
         let ttsErrorCount = 0;
         let ttsCurrentChapter = 0;
         const TTS_MAX_ERRORS = 5;
-        const TTS_MOBILE_CHUNK = 150;
-        const TTS_DESKTOP_CHUNK = 180;
+        const TTS_MOBILE_CHUNK = 400; // Chunk lớn hơn để giảm số lần ngắt quãng giữa các đoạn
+        const TTS_DESKTOP_CHUNK = 400;
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         let ttsTimeout = null;
         let ttsMonitor = null; // Polling monitor cho mobile
@@ -1642,6 +1652,13 @@
             cfg.ttsRate = Math.max(0.5, Math.min(2.0, Math.round((cfg.ttsRate + delta) * 10) / 10));
             localStorage.setItem('reader_ttsRate', cfg.ttsRate);
             document.getElementById('tts-rate-display').textContent = cfg.ttsRate.toFixed(1);
+        }
+
+        function changeTTSEngine(engine) {
+            cfg.ttsEngine = engine;
+            localStorage.setItem('reader_ttsEngine', engine);
+            showToast(engine === 'google' ? "Đã đổi sang Google (Hỗ trợ chạy nền)" : "Đã đổi sang Hệ thống");
+            if (isSpeaking) stopTTS();
         }
 
         // Chrome load giọng bất đồng bộ, cần thử lại nhiều lần
@@ -1735,7 +1752,8 @@
 
         // Chunking thông minh: ghép các câu ngắn thành chunk lớn, chỉ tách tại ranh giới câu
         function chunkText(cleanText) {
-            let maxLen = isMobile ? TTS_MOBILE_CHUNK : TTS_DESKTOP_CHUNK;
+            // Google API giới hạn ~200 ký tự mỗi request
+            let maxLen = (cfg.ttsEngine === 'google') ? 180 : (isMobile ? TTS_MOBILE_CHUNK : TTS_DESKTOP_CHUNK);
             // Tách theo câu (dấu chấm + khoảng trắng hoặc cuối chuỗi)
             let sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
             let queue = [];
@@ -1787,11 +1805,14 @@
             let rawText = prepareChapterTTS(currentChapter);
             if (!rawText || !rawText.trim()) { showToast("Chương này không có văn bản!"); return; }
 
-            if (!viVoice) {
-                loadVoices();
+            if (cfg.ttsEngine === 'system') {
                 if (!viVoice) {
-                    showToast("Trình duyệt chưa hỗ trợ đọc giọng nói! Thử trình duyệt khác.");
-                    return;
+                    loadVoices();
+                    if (!viVoice) {
+                        showToast("Trình duyệt chưa hỗ trợ đọc giọng nói! Chuyển sang Google API...");
+                        cfg.ttsEngine = 'google';
+                        document.getElementById('tts-engine-select').value = 'google';
+                    }
                 }
             }
 
@@ -1817,11 +1838,12 @@
 
         function stopTTS() {
             synth.cancel();
+            googleAudio.pause();
+            googleAudio.src = '';
             stopKeepAlive();
             stopAudioSession();
             if (ttsMonitor) { clearInterval(ttsMonitor); ttsMonitor = null; }
             if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
-            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
             isSpeaking = false;
             ttsQueue = [];
             ttsCurrentChapter = 0;
@@ -1932,66 +1954,83 @@
             }
 
             let chunk = ttsQueue.shift();
+            let chunkHandled = false;
 
-            let utterance = new SpeechSynthesisUtterance(chunk);
-            utterance.lang = viVoice ? viVoice.lang : 'vi-VN';
-            utterance.rate = cfg.ttsRate;
-            if (viVoice) utterance.voice = viVoice;
+            if (cfg.ttsEngine === 'google') {
+                // ====== GOOGLE TTS (AUDIO TAG - HỖ TRỢ CHẠY NỀN) ======
+                let url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(chunk)}`;
+                googleAudio.src = url;
+                googleAudio.playbackRate = cfg.ttsRate;
 
-            if (isMobile) {
-                // ====== MOBILE: POLLING MONITOR ======
-                // Không dựa vào onend/onerror (không đáng tin trên mobile)
-                // Thay vào đó, poll synth.speaking mỗi 250ms
-                synth.speak(utterance);
-
-                // Đợi 300ms cho speech bắt đầu, rồi bắt đầu monitor
-                ttsTimeout = setTimeout(() => {
-                    // Nếu speech không bắt đầu được (bị block), thử lại
-                    if (!synth.speaking && isSpeaking) {
-                        console.log('TTS Mobile: Speech không bắt đầu, thử lại...');
-                        ttsErrorCount++;
-                        synth.cancel();
-                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 200);
-                        // Trả chunk về đầu queue
-                        ttsQueue.unshift(chunk);
-                        return;
-                    }
-
-                    // Bắt đầu polling: kiểm tra synth.speaking mỗi 250ms
-                    ttsMonitor = setInterval(() => {
-                        if (!isSpeaking) {
-                            clearInterval(ttsMonitor); ttsMonitor = null;
-                            return;
-                        }
-                        // Khi synth.speaking = false → utterance đã kết thúc (hoặc bị kill)
-                        if (!synth.speaking) {
-                            clearInterval(ttsMonitor); ttsMonitor = null;
-                            ttsErrorCount = 0;
-                            // Chuyển chunk tiếp ngay lập tức
-                            if (isSpeaking) playNextTTSChunk();
-                        }
-                    }, 250);
-                }, 300);
-
-            } else {
-                // ====== DESKTOP: EVENT-BASED (hoạt động tốt) ======
-                utterance.onend = () => {
+                googleAudio.onended = () => {
+                    if (chunkHandled) return;
+                    chunkHandled = true;
                     ttsErrorCount = 0;
                     if (isSpeaking) {
                         setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 50);
                     }
                 };
 
+                googleAudio.onerror = (e) => {
+                    if (chunkHandled) return;
+                    chunkHandled = true;
+                    console.error("Lỗi Google TTS:", e);
+                    ttsErrorCount++;
+                    if (isSpeaking) {
+                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 500);
+                    }
+                };
+
+                googleAudio.play().catch(e => {
+                    console.error("Play block:", e);
+                    if (!chunkHandled) {
+                        chunkHandled = true;
+                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 500);
+                    }
+                });
+
+            } else {
+                // ====== SYSTEM TTS (SPEECH SYNTHESIS - BỊ NGẮT KHI ẨN APP) ======
+                let utterance = new SpeechSynthesisUtterance(chunk);
+                utterance.lang = viVoice ? viVoice.lang : 'vi-VN';
+                utterance.rate = cfg.ttsRate;
+                if (viVoice) utterance.voice = viVoice;
+
+                utterance.onend = () => {
+                    if (chunkHandled) return;
+                    chunkHandled = true;
+                    ttsErrorCount = 0;
+                    if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
+                    if (isSpeaking) {
+                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 50);
+                    }
+                };
+
                 utterance.onerror = (e) => {
+                    if (chunkHandled) return;
                     if (e.error === 'interrupted' || e.error === 'canceled') return;
+                    chunkHandled = true;
                     console.error("Lỗi TTS:", e.error, chunk.substring(0, 50));
                     ttsErrorCount++;
+                    if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
                     if (isSpeaking) {
                         setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 300);
                     }
                 };
 
                 synth.speak(utterance);
+
+                if (isMobile) {
+                    let estimatedMs = Math.max(5000, (chunk.length / cfg.ttsRate) * 85 + 3000);
+                    ttsTimeout = setTimeout(() => {
+                        if (!chunkHandled && isSpeaking) {
+                            console.log('TTS Mobile: onend không fire, kích hoạt fallback chuyển chunk');
+                            chunkHandled = true;
+                            synth.cancel();
+                            setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 200);
+                        }
+                    }, estimatedMs);
+                }
             }
         }
 
