@@ -904,6 +904,8 @@
             border-radius: 16px;
             width: 85%;
             max-width: 320px;
+            max-height: 85vh;
+            overflow-y: auto;
             text-align: center;
             border: 1px solid var(--card-border);
             transform: translateY(20px);
@@ -1337,26 +1339,24 @@
         // --- MỤC LỤC VỚI NHÓM CHƯƠNG ---
         const GROUP_SIZE = 50;
 
+        let tocGroupsData = {}; // Lưu trữ dữ liệu nhóm cho Lazy Load
+
         function buildToc() {
             let html = '';
             if (availableChapters.length > GROUP_SIZE) {
-                // Nhóm chương
-                let groups = {};
+                tocGroupsData = {};
                 availableChapters.forEach(c => {
                     let groupIdx = Math.floor((c - 1) / GROUP_SIZE);
                     let start = groupIdx * GROUP_SIZE + 1;
                     let end = Math.min(start + GROUP_SIZE - 1, availableChapters[availableChapters.length - 1]);
                     let key = `${start}-${end}`;
-                    if (!groups[key]) groups[key] = [];
-                    groups[key].push(c);
+                    if (!tocGroupsData[key]) tocGroupsData[key] = [];
+                    tocGroupsData[key].push(c);
                 });
-                for (let key in groups) {
-                    html += `<div class="toc-group-header" onclick="toggleTocGroup(this)"><span>Chương ${key}</span><span class="arrow">▼</span></div>`;
-                    html += `<div class="toc-group" style="max-height: 9999px;">`;
-                    groups[key].forEach(c => {
-                        html += `<li class="toc-item" data-id="${c}" onclick="loadChapter(${c}); toggleSidebar();">Chương ${c}</li>`;
-                    });
-                    html += `</div>`;
+                for (let key in tocGroupsData) {
+                    // Mặc định tạo nhóm collapsed (đóng) và rỗng
+                    html += `<div class="toc-group-header collapsed" onclick="toggleTocGroup(this, '${key}')"><span>Chương ${key}</span><span class="arrow">▼</span></div>`;
+                    html += `<div class="toc-group collapsed" id="toc-group-${key}"></div>`;
                 }
             } else {
                 availableChapters.forEach(c => {
@@ -1366,45 +1366,69 @@
             document.getElementById('toc-list').innerHTML = html;
         }
 
-        function toggleTocGroup(header) {
+        function toggleTocGroup(header, key) {
             header.classList.toggle('collapsed');
             let group = header.nextElementSibling;
+
+            // Lazy Load: Chỉ render DOM khi người dùng mở nhóm lần đầu tiên
+            if (group.innerHTML === '' && tocGroupsData[key]) {
+                let itemsHtml = '';
+                tocGroupsData[key].forEach(c => {
+                    itemsHtml += `<li class="toc-item" data-id="${c}" onclick="loadChapter(${c}); toggleSidebar();">Chương ${c}</li>`;
+                });
+                group.innerHTML = itemsHtml;
+            }
+
             group.classList.toggle('collapsed');
         }
 
         function filterToc(query) {
-            query = query.trim();
-            let items = document.querySelectorAll('.toc-item');
-            let groups = document.querySelectorAll('.toc-group');
-            let headers = document.querySelectorAll('.toc-group-header');
+            query = query.trim().toLowerCase();
+            let tocList = document.getElementById('toc-list');
 
             if (!query) {
-                items.forEach(el => el.style.display = '');
-                groups.forEach(el => el.style.display = '');
-                headers.forEach(el => el.style.display = '');
+                // Khôi phục lại mục lục rỗng (lazy load) nếu xóa ô tìm kiếm
+                buildToc();
+                // Phục hồi highlight cho chương đang đọc hiện tại
+                if (currentChapter) setTimeout(() => highlightToc(currentChapter), 10);
                 return;
             }
 
-            items.forEach(el => {
-                let match = el.textContent.includes(query) || el.dataset.id === query;
-                el.style.display = match ? '' : 'none';
+            // Tìm kiếm trực tiếp trên mảng dữ liệu (nhanh hơn tìm trên DOM gấp ngàn lần)
+            let filtered = availableChapters.filter(c => c.toString().includes(query) || `chương ${c}`.includes(query));
+
+            let html = '';
+            filtered.forEach(c => {
+                html += `<li class="toc-item" data-id="${c}" onclick="loadChapter(${c}); toggleSidebar();">Chương ${c}</li>`;
             });
 
-            // Ẩn nhóm nếu không có item nào hiển thị
-            groups.forEach((group, i) => {
-                let hasVisible = Array.from(group.querySelectorAll('.toc-item')).some(el => el.style.display !== 'none');
-                group.style.display = hasVisible ? '' : 'none';
-                if (headers[i]) headers[i].style.display = hasVisible ? '' : 'none';
-                // Mở nhóm khi tìm kiếm
-                if (hasVisible) {
-                    group.classList.remove('collapsed');
-                    if (headers[i]) headers[i].classList.remove('collapsed');
-                }
-            });
+            if (filtered.length === 0) {
+                html = '<div style="padding:10px;text-align:center;opacity:0.5;">Không tìm thấy kết quả</div>';
+            }
+
+            tocList.innerHTML = html;
         }
 
         let currentActiveTocItem = null;
         function highlightToc(chap) {
+            // Tự động lazy load và mở nhóm chứa chương đang đọc nếu cần
+            if (availableChapters.length > GROUP_SIZE) {
+                let groupIdx = Math.floor((chap - 1) / GROUP_SIZE);
+                let start = groupIdx * GROUP_SIZE + 1;
+                let end = Math.min(start + GROUP_SIZE - 1, availableChapters[availableChapters.length - 1]);
+                let key = `${start}-${end}`;
+
+                let groupDiv = document.getElementById(`toc-group-${key}`);
+                if (groupDiv) {
+                    if (groupDiv.innerHTML === '' || groupDiv.classList.contains('collapsed')) {
+                        let header = groupDiv.previousElementSibling;
+                        if (header && header.classList.contains('collapsed')) {
+                            toggleTocGroup(header, key);
+                        }
+                    }
+                }
+            }
+
             if (currentActiveTocItem) {
                 currentActiveTocItem.classList.remove('active');
             } else {
@@ -1867,7 +1891,7 @@
             googleAudio1.src = '';
             googleAudio2.pause();
             googleAudio2.src = '';
-            
+
             clearTTSTimers();
             stopAudioSession();
             if (ttsMonitor) { clearInterval(ttsMonitor); ttsMonitor = null; }
@@ -1987,9 +2011,9 @@
                 // ====== GOOGLE TTS (AUDIO TAG - HỖ TRỢ CHẠY NỀN & DUAL BUFFERING) ======
                 let activeAudio = (currentAudio === 1) ? googleAudio1 : googleAudio2;
                 let nextAudio = (currentAudio === 1) ? googleAudio2 : googleAudio1;
-                
+
                 let url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(chunk)}`;
-                
+
                 // Nếu chưa được tải trước đó thì gán src
                 if (!activeAudio.src || !activeAudio.src.includes(encodeURIComponent(chunk))) {
                     activeAudio.src = url;
