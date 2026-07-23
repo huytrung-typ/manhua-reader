@@ -1172,6 +1172,12 @@
                     <button onclick="changeTTSRate(0.1)">+</button>
                 </div>
             </div>
+            <div class="setting-group" style="margin-top: 15px; border-top: 1px solid var(--card-border); padding-top: 15px;">
+                <label>Đồng bộ Đám mây (JSONBin)</label>
+                <input type="text" id="sync-api-key" placeholder="Nhập API Key" style="width: 100%; padding: 8px; margin-bottom: 8px; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--card-border); border-radius: 4px;" onchange="saveSyncSettings()">
+                <input type="text" id="sync-bin-id" placeholder="Nhập Bin ID" style="width: 100%; padding: 8px; margin-bottom: 8px; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--card-border); border-radius: 4px;" onchange="saveSyncSettings()">
+                <button style="width: 100%; background: var(--accent); color: white; padding: 8px; border: none; border-radius: 4px; font-weight: bold;" onclick="syncProgressDown(true)">Tải đồng bộ thủ công</button>
+            </div>
             <button class="btn-cancel" style="width:100%; margin-top: 10px;"
                 onclick="closeModal('settings-modal')">Đóng</button>
         </div>
@@ -1229,6 +1235,9 @@
 
             if (document.getElementById('tts-rate-display')) document.getElementById('tts-rate-display').textContent = cfg.ttsRate.toFixed(1);
 
+            document.getElementById('sync-api-key').value = localStorage.getItem('reader_sync_api') || '';
+            document.getElementById('sync-bin-id').value = localStorage.getItem('reader_sync_bin') || '';
+
             updateActiveButtons('font-controls', cfg.font);
             updateActiveButtons('theme-controls', cfg.theme);
         }
@@ -1241,6 +1250,67 @@
         function changeFont(t) { cfg.font = t; localStorage.setItem('reader_font', t); initSettings(); }
         function changeTheme(t) { cfg.theme = t; localStorage.setItem('reader_theme', t); initSettings(); }
         function changeScrollSpeed(s) { cfg.speed = Math.max(0.5, Math.min(5, cfg.speed + s)); localStorage.setItem('reader_speed', cfg.speed); initSettings(); }
+
+        function saveSyncSettings() {
+            localStorage.setItem('reader_sync_api', document.getElementById('sync-api-key').value.trim());
+            localStorage.setItem('reader_sync_bin', document.getElementById('sync-bin-id').value.trim());
+        }
+
+        async function syncProgressUp(chapNum) {
+            let apiKey = localStorage.getItem('reader_sync_api');
+            let binId = localStorage.getItem('reader_sync_bin');
+            if (!apiKey || !binId) return;
+
+            try {
+                fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': apiKey
+                    },
+                    body: JSON.stringify({ chapter: chapNum, timestamp: Date.now() })
+                }).catch(e => console.log('Sync up error:', e));
+            } catch(e) {}
+        }
+
+        async function syncProgressDown(manual = false) {
+            let apiKey = localStorage.getItem('reader_sync_api');
+            let binId = localStorage.getItem('reader_sync_bin');
+            if (!apiKey || !binId) {
+                if (manual) showToast("Vui lòng nhập API Key và Bin ID");
+                return;
+            }
+
+            if (manual) showToast("Đang tải dữ liệu đồng bộ...");
+
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Master-Key': apiKey
+                    }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    let remoteChap = data.record.chapter;
+                    
+                    let localChap = parseInt(localStorage.getItem('reader_last_chap'));
+                    
+                    if (remoteChap && availableChapters.includes(remoteChap)) {
+                        if (manual || remoteChap !== localChap) {
+                            loadChapter(remoteChap);
+                            showToast(`Đã đồng bộ Chương ${remoteChap} từ mây`);
+                        } else if (manual) {
+                            showToast("Bạn đã ở chương mới nhất!");
+                        }
+                    }
+                } else if (manual) {
+                    showToast("Lỗi đồng bộ: Sai API Key hoặc Bin ID");
+                }
+            } catch(e) {
+                if (manual) showToast("Lỗi kết nối khi đồng bộ");
+            }
+        }
 
         // --- FOCUS MODE ---
         let isFocusMode = false;
@@ -1259,6 +1329,7 @@
                     currentChapter = activeChap;
                     updateChapBtn(activeChap);
                     localStorage.setItem('reader_last_chap', activeChap); // Lưu Auto-Bookmark
+                    syncProgressUp(activeChap);
                     highlightToc(activeChap);
                 }
             });
@@ -1442,6 +1513,7 @@
                     loadChapter(availableChapters[0]);
                 }
                 endObserver.observe(document.getElementById('scroll-anchor'));
+                syncProgressDown(); // Auto sync on load
             } else {
                 document.getElementById('content-box').innerHTML = '<div class="loading">File rỗng!</div>';
             }
@@ -1513,6 +1585,7 @@
 
             chapterObserver.observe(div);
             localStorage.setItem('reader_last_chap', chapNum);
+            syncProgressUp(chapNum);
 
             updateChapBtn(chapNum);
             highlightToc(chapNum);
