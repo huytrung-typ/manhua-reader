@@ -609,6 +609,87 @@
             color: #f87171;
         }
 
+        /* === BADGE THEME OVERRIDES === */
+        [data-theme="sepia"] .badge {
+            background: rgba(120, 80, 40, 0.12);
+            color: #78501e;
+        }
+
+        [data-theme="sepia"] .badge.tuvi {
+            background: rgba(180, 83, 9, 0.12);
+            color: #b45309;
+        }
+
+        [data-theme="sepia"] .badge.status {
+            background: rgba(22, 120, 55, 0.12);
+            color: #15803d;
+        }
+
+        [data-theme="sepia"] .badge.dead {
+            background: rgba(185, 28, 28, 0.12);
+            color: #b91c1c;
+        }
+
+        [data-theme="oled"] .badge {
+            background: rgba(100, 116, 139, 0.15);
+            color: #94a3b8;
+        }
+
+        [data-theme="oled"] .badge.tuvi {
+            background: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+        }
+
+        [data-theme="oled"] .badge.status {
+            background: rgba(34, 197, 94, 0.1);
+            color: #4ade80;
+        }
+
+        [data-theme="oled"] .badge.dead {
+            background: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+        }
+
+        [data-theme="purple"] .badge {
+            background: rgba(168, 85, 247, 0.1);
+            color: #c084fc;
+        }
+
+        [data-theme="purple"] .badge.tuvi {
+            background: rgba(139, 92, 246, 0.12);
+            color: #a78bfa;
+        }
+
+        [data-theme="purple"] .badge.status {
+            background: rgba(52, 211, 153, 0.1);
+            color: #6ee7b7;
+        }
+
+        [data-theme="purple"] .badge.dead {
+            background: rgba(244, 63, 94, 0.12);
+            color: #fb7185;
+        }
+
+        [data-theme="light"] .badge {
+            background: rgba(100, 116, 139, 0.1);
+            color: #475569;
+        }
+
+        [data-theme="light"] .badge.tuvi {
+            background: rgba(99, 102, 241, 0.1);
+            color: #4f46e5;
+        }
+
+        [data-theme="light"] .badge.status {
+            background: rgba(22, 163, 74, 0.1);
+            color: #16a34a;
+        }
+
+        [data-theme="light"] .badge.dead {
+            background: rgba(220, 38, 38, 0.1);
+            color: #dc2626;
+        }
+
         .char-update {
             background: var(--update-bg);
             padding: 12px 16px;
@@ -1337,42 +1418,79 @@
         document.addEventListener('mousedown', (e) => { if (isAutoScrolling && e.target.tagName !== 'BUTTON') toggleAutoScroll(); });
 
         // ==========================================
-        // TÍNH NĂNG TTS (ĐỌC TRUYỆN NÂNG CẤP & FALLBACK)
+        // TÍNH NĂNG TTS (ĐỌC TRUYỆN - ĐÃ SỬA LỖI)
         // ==========================================
         let synth = window.speechSynthesis;
         let isSpeaking = false;
         let ttsQueue = [];
         let viVoice = null;
         let currentAudio = null;
+        let ttsKeepAlive = null; // Interval chống Chrome tự pause
+        let ttsErrorCount = 0;
+        const TTS_MAX_ERRORS = 5; // Dừng nếu lỗi liên tiếp quá nhiều
 
-        // 1. Ép trình duyệt phải tải đúng giọng Tiếng Việt
+        // 1. Tìm giọng Tiếng Việt - ưu tiên giọng hệ thống (local) thay vì Google
         function loadVoices() {
             let voices = synth.getVoices();
-            // Tìm các giọng có mã vi-VN, vi, hoặc tên chứa chữ Vietnamese
-            viVoice = voices.find(v => v.lang === 'vi-VN' || v.lang === 'vi' || v.name.includes('Vietnamese'));
+            if (voices.length === 0) return;
+
+            // Lọc giọng Việt
+            let viVoices = voices.filter(v => v.lang === 'vi-VN' || v.lang.startsWith('vi') || v.name.toLowerCase().includes('vietnamese'));
+
+            if (viVoices.length > 0) {
+                // Ưu tiên giọng hệ thống (localService = true) thay vì giọng Google online
+                let localViVoice = viVoices.find(v => v.localService === true);
+                viVoice = localViVoice || viVoices[0];
+                console.log('TTS: Dùng giọng Việt:', viVoice.name, '| Local:', viVoice.localService);
+            } else {
+                // Không có giọng Việt, dùng giọng mặc định hệ thống
+                viVoice = voices.find(v => v.default) || voices[0];
+                console.log('TTS: Không tìm thấy giọng Việt, dùng giọng:', viVoice?.name);
+            }
+
+            // Log tất cả giọng Việt để debug
+            console.log('TTS: Tất cả giọng Việt tìm thấy:', viVoices.map(v => `${v.name} (local: ${v.localService})`));
         }
-        // Trình duyệt Chrome load giọng bất đồng bộ nên cần sự kiện này
+
+        // Chrome load giọng bất đồng bộ, cần thử lại nhiều lần
         if (speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = loadVoices;
         }
-        loadVoices(); // Kích hoạt luôn cho Safari/Firefox
+        loadVoices();
+        // Thử lại sau 500ms phòng trường hợp voice chưa load kịp
+        setTimeout(loadVoices, 500);
+        setTimeout(loadVoices, 1500);
+
+        // 2. Workaround cho bug Chrome: Chrome tự pause speech sau ~15 giây
+        // Giải pháp: gọi pause/resume định kỳ mỗi 10 giây
+        function startKeepAlive() {
+            stopKeepAlive();
+            ttsKeepAlive = setInterval(() => {
+                if (synth.speaking && !synth.paused) {
+                    synth.pause();
+                    synth.resume();
+                }
+            }, 10000);
+        }
+
+        function stopKeepAlive() {
+            if (ttsKeepAlive) {
+                clearInterval(ttsKeepAlive);
+                ttsKeepAlive = null;
+            }
+        }
 
         function toggleTTS() {
             let btn = document.getElementById('tts-btn');
 
             // Bấm lần 2 để tắt
             if (isSpeaking) {
-                synth.cancel();
-                if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-                isSpeaking = false;
-                ttsQueue = []; // Xóa hàng đợi
-                btn.classList.remove('active');
-                showToast("Đã tắt âm thanh");
+                stopTTS();
                 return;
             }
 
             let activeWrap = document.querySelector(`.chapter-wrapper[data-chap="${currentChapter}"]`);
-            if (!activeWrap) return;
+            if (!activeWrap) { showToast("Không tìm thấy nội dung chương!"); return; }
 
             // Lấy toàn bộ text từ thẻ p (nội dung) và các thẻ nhân vật
             let textElements = activeWrap.querySelectorAll('.story-text, .section-title, .char-main, .char-update');
@@ -1380,16 +1498,26 @@
 
             if (!rawText.trim()) { showToast("Chương này không có văn bản!"); return; }
 
-            // 2. Tiền xử lý văn bản: Ép ngắt nhịp thở
-            let cleanText = rawText
-                .replace(/-/g, '. ')        // Biến dấu trừ thành dấu chấm để ngắt nghỉ hẳn
-                .replace(/\|/g, '. ')       // Đổi gạch đứng thành chấm để ngắt câu
-                .replace(/✦|\*/g, '')       // Xóa icon đi để máy không đọc bậy
-                .replace(/⚡/g, '')
-                .replace(/CẬP NHẬT:|CAP NHAT:/g, 'Cập nhật. ')
-                .replace(/\n/g, '. ');      // Xuống dòng chuyển thành dấu chấm hết câu
+            // Kiểm tra giọng nói có sẵn không
+            if (!viVoice) {
+                loadVoices(); // Thử load lại lần cuối
+                if (!viVoice) {
+                    showToast("Trình duyệt chưa hỗ trợ đọc giọng nói! Thử trình duyệt khác.");
+                    return;
+                }
+            }
 
-            // 3. Băm nhỏ văn bản (Chunking) để tránh lỗi API và tạo khoảng nghỉ
+            // Tiền xử lý văn bản: Ép ngắt nhịp thở
+            let cleanText = rawText
+                .replace(/-/g, '. ')
+                .replace(/\|/g, '. ')
+                .replace(/[✦*⚡👤⚔❤💀📜🔍]/gu, '')
+                .replace(/CẬP NHẬT:|CAP NHAT:/g, 'Cập nhật. ')
+                .replace(/\n/g, '. ')
+                .replace(/\.{2,}/g, '.') // Gom nhiều dấu chấm liên tiếp
+                .replace(/\s{2,}/g, ' '); // Gom khoảng trắng
+
+            // Băm nhỏ văn bản (Chunking)
             let rawChunks = cleanText.split('.');
             ttsQueue = [];
             rawChunks.forEach(t => {
@@ -1398,7 +1526,6 @@
                     if (t.length <= 180) {
                         ttsQueue.push(t + '.');
                     } else {
-                        // Cắt nhỏ tiếp bằng dấu phẩy nếu câu quá dài
                         let subChunks = t.split(',');
                         subChunks.forEach(st => {
                             st = st.trim();
@@ -1412,56 +1539,73 @@
                 }
             });
 
+            if (ttsQueue.length === 0) { showToast("Không có nội dung để đọc!"); return; }
+
             isSpeaking = true;
+            ttsErrorCount = 0;
             btn.classList.add('active');
 
-            if (viVoice) {
-                showToast("Đang đọc Chương " + currentChapter);
-            } else {
-                showToast("Đang đọc (Google TTS Fallback)");
-            }
+            // Hủy mọi speech cũ đang chạy
+            synth.cancel();
 
-            // Bắt đầu đọc câu đầu tiên trong hàng đợi
+            showToast(`Đang đọc Chương ${currentChapter} (${ttsQueue.length} đoạn)`);
+            startKeepAlive();
             playNextTTSChunk();
+        }
+
+        function stopTTS() {
+            synth.cancel();
+            stopKeepAlive();
+            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+            isSpeaking = false;
+            ttsQueue = [];
+            ttsErrorCount = 0;
+            document.getElementById('tts-btn').classList.remove('active');
+            showToast("Đã tắt âm thanh");
         }
 
         function playNextTTSChunk() {
             if (!isSpeaking || ttsQueue.length === 0) {
+                // Đọc xong toàn bộ
+                stopKeepAlive();
                 isSpeaking = false;
                 document.getElementById('tts-btn').classList.remove('active');
+                if (ttsQueue.length === 0 && ttsErrorCount < TTS_MAX_ERRORS) {
+                    showToast("Đã đọc xong chương!");
+                }
                 return;
             }
 
-            let chunk = ttsQueue.shift(); // Lấy câu đầu tiên ra khỏi hàng đợi
-
-            if (viVoice) {
-                let utterance = new SpeechSynthesisUtterance(chunk);
-                utterance.lang = 'vi-VN';
-                utterance.rate = 1.05;
-                utterance.voice = viVoice;
-
-                utterance.onend = () => { if (isSpeaking) playNextTTSChunk(); };
-                utterance.onerror = (e) => {
-                    if (e.error !== 'interrupted' && e.error !== 'canceled') {
-                        console.error("Lỗi TTS:", e);
-                        if (isSpeaking) playNextTTSChunk();
-                    }
-                };
-                synth.speak(utterance);
-            } else {
-                // Dùng Google Translate TTS API dự phòng
-                let url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(chunk)}`;
-                currentAudio = new Audio(url);
-                currentAudio.onended = () => { if (isSpeaking) playNextTTSChunk(); };
-                currentAudio.onerror = () => {
-                    console.error("Lỗi mạng Google TTS");
-                    if (isSpeaking) playNextTTSChunk();
-                };
-                currentAudio.play().catch(e => {
-                    console.error("Lỗi Audio API:", e);
-                    if (isSpeaking) playNextTTSChunk();
-                });
+            // Dừng nếu lỗi quá nhiều
+            if (ttsErrorCount >= TTS_MAX_ERRORS) {
+                showToast("TTS gặp quá nhiều lỗi, đã dừng.");
+                stopTTS();
+                return;
             }
+
+            let chunk = ttsQueue.shift();
+
+            let utterance = new SpeechSynthesisUtterance(chunk);
+            utterance.lang = 'vi-VN';
+            utterance.rate = 1.05;
+            if (viVoice) utterance.voice = viVoice;
+
+            utterance.onend = () => {
+                ttsErrorCount = 0; // Reset lỗi khi đọc thành công
+                if (isSpeaking) playNextTTSChunk();
+            };
+
+            utterance.onerror = (e) => {
+                if (e.error === 'interrupted' || e.error === 'canceled') return;
+                console.error("Lỗi TTS:", e.error, chunk.substring(0, 50));
+                ttsErrorCount++;
+                if (isSpeaking) {
+                    // Delay 300ms trước khi thử câu tiếp để không burn qua queue
+                    setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 300);
+                }
+            };
+
+            synth.speak(utterance);
         }
 
         // Gestures (Vuốt)
