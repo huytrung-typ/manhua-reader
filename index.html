@@ -162,7 +162,7 @@
             justify-content: center;
             font-size: 22px;
             cursor: pointer;
-            box-shadow: 0 4px 20px var(--accent-glow), 0 2px 10px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px var(--accent-glow), 0 2px 10px rgba(0, 0, 0, 0.3);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             z-index: 10;
             position: relative;
@@ -218,12 +218,29 @@
         }
 
         /* Stagger animation cho từng nút */
-        .fab-menu.open .fab-item:nth-child(1) { transition-delay: 0.02s; }
-        .fab-menu.open .fab-item:nth-child(2) { transition-delay: 0.05s; }
-        .fab-menu.open .fab-item:nth-child(3) { transition-delay: 0.08s; }
-        .fab-menu.open .fab-item:nth-child(4) { transition-delay: 0.11s; }
-        .fab-menu.open .fab-item:nth-child(5) { transition-delay: 0.14s; }
-        .fab-menu.open .fab-item:nth-child(6) { transition-delay: 0.17s; }
+        .fab-menu.open .fab-item:nth-child(1) {
+            transition-delay: 0.02s;
+        }
+
+        .fab-menu.open .fab-item:nth-child(2) {
+            transition-delay: 0.05s;
+        }
+
+        .fab-menu.open .fab-item:nth-child(3) {
+            transition-delay: 0.08s;
+        }
+
+        .fab-menu.open .fab-item:nth-child(4) {
+            transition-delay: 0.11s;
+        }
+
+        .fab-menu.open .fab-item:nth-child(5) {
+            transition-delay: 0.14s;
+        }
+
+        .fab-menu.open .fab-item:nth-child(6) {
+            transition-delay: 0.17s;
+        }
 
         .fab-item:hover {
             transform: scale(1.15);
@@ -269,10 +286,12 @@
         .fab-overlay {
             display: none;
             position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index: 999;
-            background: rgba(0,0,0,0.2);
+            background: rgba(0, 0, 0, 0.2);
         }
 
         .fab-overlay.show {
@@ -1061,10 +1080,14 @@
         <div class="fab-menu" id="fab-menu">
             <button class="fab-item" onclick="openSettings(); closeFab();" data-label="Cài đặt giao diện">Aa</button>
             <button class="fab-item" onclick="toggleSidebar(); closeFab();" data-label="Mục lục">☰</button>
-            <button id="focus-btn" class="fab-item" onclick="toggleFocusMode(); closeFab();" data-label="Chế độ tập trung">👁</button>
-            <button id="tts-btn" class="fab-item" onclick="toggleTTS(); closeFab();" data-label="Nghe truyện">🎧</button>
-            <button id="autoscroll-btn" class="fab-item" onclick="toggleAutoScroll(); closeFab();" data-label="Cuộn tự động">⬇️</button>
-            <button class="fab-item" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); closeFab();" data-label="Lên đầu trang">⬆</button>
+            <button id="focus-btn" class="fab-item" onclick="toggleFocusMode(); closeFab();"
+                data-label="Chế độ tập trung">👁</button>
+            <button id="tts-btn" class="fab-item" onclick="toggleTTS(); closeFab();"
+                data-label="Nghe truyện">🎧</button>
+            <button id="autoscroll-btn" class="fab-item" onclick="toggleAutoScroll(); closeFab();"
+                data-label="Cuộn tự động">⬇️</button>
+            <button class="fab-item" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); closeFab();"
+                data-label="Lên đầu trang">⬆</button>
         </div>
     </div>
 
@@ -1140,7 +1163,8 @@
             </div>
             <div class="setting-group">
                 <label>🎤 Giọng đọc TTS</label>
-                <select id="voice-select" onchange="selectVoice(this.value)" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-color);font-size:14px;outline:none;cursor:pointer;"></select>
+                <select id="voice-select" onchange="selectVoice(this.value)"
+                    style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-color);font-size:14px;outline:none;cursor:pointer;"></select>
             </div>
             <div class="setting-group">
                 <label>🔊 Tốc độ đọc TTS</label>
@@ -1524,12 +1548,13 @@
         let currentAudio = null;
         let ttsKeepAlive = null;
         let ttsErrorCount = 0;
-        let ttsCurrentChapter = 0; // Chương đang đọc TTS
+        let ttsCurrentChapter = 0;
         const TTS_MAX_ERRORS = 5;
-        const TTS_MOBILE_CHUNK = 150; // Mobile chunk (keep-alive đã bỏ, chunk có thể dài hơn)
+        const TTS_MOBILE_CHUNK = 150;
         const TTS_DESKTOP_CHUNK = 180;
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        let ttsTimeout = null; // Timeout safety net cho mobile
+        let ttsTimeout = null;
+        let ttsMonitor = null; // Polling monitor cho mobile
 
         // 1. Tìm giọng Tiếng Việt - ưu tiên giọng hệ thống (local) thay vì Google
         function loadVoices() {
@@ -1769,6 +1794,8 @@
         function stopTTS() {
             synth.cancel();
             stopKeepAlive();
+            if (ttsMonitor) { clearInterval(ttsMonitor); ttsMonitor = null; }
+            if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
             if (currentAudio) { currentAudio.pause(); currentAudio = null; }
             isSpeaking = false;
             ttsQueue = [];
@@ -1812,8 +1839,9 @@
         function playNextTTSChunk() {
             if (!isSpeaking) return;
 
-            // Clear timeout cũ
+            // Clear timers cũ
             if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
+            if (ttsMonitor) { clearInterval(ttsMonitor); ttsMonitor = null; }
 
             if (ttsQueue.length === 0) {
                 ttsNextChapter();
@@ -1833,61 +1861,61 @@
             utterance.rate = cfg.ttsRate;
             if (viVoice) utterance.voice = viVoice;
 
-            let chunkHandled = false;
-
-            utterance.onend = () => {
-                if (chunkHandled) return;
-                chunkHandled = true;
-                ttsErrorCount = 0;
-                if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
-                if (isSpeaking) {
-                    setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 50);
-                }
-            };
-
-            utterance.onerror = (e) => {
-                if (chunkHandled) return;
-                if (e.error === 'interrupted' || e.error === 'canceled') {
-                    // Trên mobile, cancel() trước speak gây ra 'canceled' error cho utterance trước
-                    // Không làm gì cả
-                    return;
-                }
-                chunkHandled = true;
-                console.error("Lỗi TTS:", e.error, chunk.substring(0, 50));
-                ttsErrorCount++;
-                if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
-                if (isSpeaking) {
-                    setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, isMobile ? 500 : 300);
-                }
-            };
-
-            synth.speak(utterance);
-
-            // MOBILE SAFETY NET: Nếu onend không fire sau thời gian dự kiến,
-            // tự động cancel và chuyển chunk tiếp
             if (isMobile) {
-                // Ước tính thời gian đọc dựa trên độ dài chunk và tốc độ
-                let estimatedMs = Math.max(5000, (chunk.length / cfg.ttsRate) * 80 + 3000);
+                // ====== MOBILE: POLLING MONITOR ======
+                // Không dựa vào onend/onerror (không đáng tin trên mobile)
+                // Thay vào đó, poll synth.speaking mỗi 250ms
+                synth.speak(utterance);
+
+                // Đợi 300ms cho speech bắt đầu, rồi bắt đầu monitor
                 ttsTimeout = setTimeout(() => {
-                    if (!chunkHandled && isSpeaking) {
-                        console.log('TTS: Mobile timeout safety - forcing next chunk');
-                        chunkHandled = true;
+                    // Nếu speech không bắt đầu được (bị block), thử lại
+                    if (!synth.speaking && isSpeaking) {
+                        console.log('TTS Mobile: Speech không bắt đầu, thử lại...');
+                        ttsErrorCount++;
                         synth.cancel();
+                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 200);
+                        // Trả chunk về đầu queue
+                        ttsQueue.unshift(chunk);
+                        return;
+                    }
+
+                    // Bắt đầu polling: kiểm tra synth.speaking mỗi 250ms
+                    ttsMonitor = setInterval(() => {
+                        if (!isSpeaking) {
+                            clearInterval(ttsMonitor); ttsMonitor = null;
+                            return;
+                        }
+                        // Khi synth.speaking = false → utterance đã kết thúc (hoặc bị kill)
+                        if (!synth.speaking) {
+                            clearInterval(ttsMonitor); ttsMonitor = null;
+                            ttsErrorCount = 0;
+                            // Chuyển chunk tiếp ngay lập tức
+                            if (isSpeaking) playNextTTSChunk();
+                        }
+                    }, 250);
+                }, 300);
+
+            } else {
+                // ====== DESKTOP: EVENT-BASED (hoạt động tốt) ======
+                utterance.onend = () => {
+                    ttsErrorCount = 0;
+                    if (isSpeaking) {
+                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 50);
+                    }
+                };
+
+                utterance.onerror = (e) => {
+                    if (e.error === 'interrupted' || e.error === 'canceled') return;
+                    console.error("Lỗi TTS:", e.error, chunk.substring(0, 50));
+                    ttsErrorCount++;
+                    if (isSpeaking) {
                         setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 300);
                     }
-                }, estimatedMs);
-            }
-        }
+                };
 
-        // Mobile: Touch to resume nếu TTS bị dừng do chính sách trình duyệt
-        if (isMobile) {
-            document.addEventListener('touchend', () => {
-                if (isSpeaking && !synth.speaking && ttsQueue.length > 0) {
-                    console.log('TTS: Mobile touch-to-resume triggered');
-                    synth.cancel();
-                    setTimeout(() => playNextTTSChunk(), 200);
-                }
-            }, { passive: true });
+                synth.speak(utterance);
+            }
         }
 
         // Gestures (Vuốt) - không vuốt khi TTS đang đọc
