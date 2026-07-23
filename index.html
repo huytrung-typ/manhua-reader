@@ -138,44 +138,103 @@
             }
         }
 
-        /* TOOLBAR NỔI BÊN PHẢI */
-        .floating-tools {
+        /* FAB SPEED DIAL - NÚT CÀI ĐẶT DUY NHẤT */
+        .fab-container {
             position: fixed;
             bottom: 30px;
             right: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
             z-index: 1000;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 0;
         }
 
-        .tool-btn {
-            background: var(--panel-bg);
-            color: var(--text-color);
-            border: 1px solid var(--card-border);
-            width: 46px;
-            height: 46px;
+        .fab-main {
+            background: var(--accent);
+            color: white;
+            border: none;
+            width: 52px;
+            height: 52px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 4px 20px var(--accent-glow), 0 2px 10px rgba(0,0,0,0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 10;
             position: relative;
         }
 
-        .tool-btn:hover {
+        .fab-main:hover {
             transform: scale(1.1);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
         }
 
-        .tool-btn:active {
+        .fab-main:active {
             transform: scale(0.9);
         }
 
-        .tool-btn.active {
+        .fab-main.open {
+            transform: rotate(45deg);
+            background: #ef4444;
+        }
+
+        .fab-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 12px;
+            pointer-events: none;
+        }
+
+        .fab-menu.open {
+            pointer-events: auto;
+        }
+
+        .fab-item {
+            background: var(--panel-bg);
+            color: var(--text-color);
+            border: 1px solid var(--card-border);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            transform: scale(0.3) translateY(20px);
+            position: relative;
+        }
+
+        .fab-menu.open .fab-item {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        /* Stagger animation cho từng nút */
+        .fab-menu.open .fab-item:nth-child(1) { transition-delay: 0.02s; }
+        .fab-menu.open .fab-item:nth-child(2) { transition-delay: 0.05s; }
+        .fab-menu.open .fab-item:nth-child(3) { transition-delay: 0.08s; }
+        .fab-menu.open .fab-item:nth-child(4) { transition-delay: 0.11s; }
+        .fab-menu.open .fab-item:nth-child(5) { transition-delay: 0.14s; }
+        .fab-menu.open .fab-item:nth-child(6) { transition-delay: 0.17s; }
+
+        .fab-item:hover {
+            transform: scale(1.15);
+            box-shadow: 0 5px 18px rgba(0, 0, 0, 0.5);
+        }
+
+        .fab-item:active {
+            transform: scale(0.9);
+        }
+
+        .fab-item.active {
             background: var(--accent);
             color: white;
             border-color: var(--accent);
@@ -183,34 +242,41 @@
         }
 
         /* Tooltip cho desktop */
-        .tool-btn::before {
-            content: attr(title);
+        .fab-item::before {
+            content: attr(data-label);
             position: absolute;
-            right: 56px;
+            right: 54px;
             top: 50%;
             transform: translateY(-50%);
             background: var(--panel-bg);
             color: var(--text-color);
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 13px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 12px;
             white-space: nowrap;
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.2s;
             border: 1px solid var(--card-border);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
         }
 
-        .tool-btn:hover::before {
+        .fab-item:hover::before {
             opacity: 1;
         }
 
-        #btt-btn {
+        /* Overlay mờ khi FAB mở */
+        .fab-overlay {
             display: none;
-            background: var(--accent);
-            color: white;
-            border: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 999;
+            background: rgba(0,0,0,0.2);
+        }
+
+        .fab-overlay.show {
+            display: block;
         }
 
         /* MỤC LỤC TRƯỢT (SIDEBAR) */
@@ -954,8 +1020,8 @@
                 min-width: 50px;
             }
 
-            .floating-tools {
-                bottom: 80px;
+            .fab-container {
+                bottom: 75px;
                 right: 15px;
             }
 
@@ -965,7 +1031,7 @@
             }
 
             /* Ẩn tooltip trên mobile */
-            .tool-btn::before {
+            .fab-item::before {
                 display: none;
             }
         }
@@ -988,15 +1054,18 @@
     </div>
     <div id="sidebar-overlay" class="modal-backdrop" onclick="toggleSidebar()"></div>
 
-    <!-- TOOLBAR NỔI BÊN PHẢI -->
-    <div class="floating-tools">
-        <button class="tool-btn" onclick="openSettings()" title="Cài đặt giao diện">Aa</button>
-        <button class="tool-btn" onclick="toggleSidebar()" title="Mục lục">☰</button>
-        <button id="focus-btn" class="tool-btn" onclick="toggleFocusMode()" title="Chế độ tập trung">👁</button>
-        <button id="tts-btn" class="tool-btn" onclick="toggleTTS()" title="Nghe truyện">🎧</button>
-        <button id="autoscroll-btn" class="tool-btn" onclick="toggleAutoScroll()" title="Cuộn tự động">⬇️</button>
-        <button id="btt-btn" class="tool-btn" onclick="window.scrollTo({top: 0, behavior: 'smooth'})"
-            title="Lên đầu trang">⬆</button>
+    <!-- FAB SPEED DIAL -->
+    <div class="fab-overlay" id="fab-overlay" onclick="closeFab()"></div>
+    <div class="fab-container">
+        <button class="fab-main" id="fab-main" onclick="toggleFab()">⚙</button>
+        <div class="fab-menu" id="fab-menu">
+            <button class="fab-item" onclick="openSettings(); closeFab();" data-label="Cài đặt giao diện">Aa</button>
+            <button class="fab-item" onclick="toggleSidebar(); closeFab();" data-label="Mục lục">☰</button>
+            <button id="focus-btn" class="fab-item" onclick="toggleFocusMode(); closeFab();" data-label="Chế độ tập trung">👁</button>
+            <button id="tts-btn" class="fab-item" onclick="toggleTTS(); closeFab();" data-label="Nghe truyện">🎧</button>
+            <button id="autoscroll-btn" class="fab-item" onclick="toggleAutoScroll(); closeFab();" data-label="Cuộn tự động">⬇️</button>
+            <button class="fab-item" onclick="window.scrollTo({top: 0, behavior: 'smooth'}); closeFab();" data-label="Lên đầu trang">⬆</button>
+        </div>
     </div>
 
     <div id="container">
@@ -1412,8 +1481,22 @@
             let winScroll = document.documentElement.scrollTop;
             let height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
             document.getElementById("progress-bar").style.width = (winScroll / height) * 100 + "%";
-            document.getElementById("btt-btn").style.display = winScroll > 600 ? "flex" : "none";
         };
+
+        // FAB Speed Dial
+        function toggleFab() {
+            let main = document.getElementById('fab-main');
+            let menu = document.getElementById('fab-menu');
+            let overlay = document.getElementById('fab-overlay');
+            let isOpen = main.classList.toggle('open');
+            menu.classList.toggle('open', isOpen);
+            overlay.classList.toggle('show', isOpen);
+        }
+        function closeFab() {
+            document.getElementById('fab-main').classList.remove('open');
+            document.getElementById('fab-menu').classList.remove('open');
+            document.getElementById('fab-overlay').classList.remove('show');
+        }
 
         // Auto Scroll
         let isAutoScrolling = false; let scrollReq;
@@ -1432,16 +1515,20 @@
         document.addEventListener('mousedown', (e) => { if (isAutoScrolling && e.target.tagName !== 'BUTTON') toggleAutoScroll(); });
 
         // ==========================================
-        // TÍNH NĂNG TTS (ĐỌC TRUYỆN - ĐÃ SỬA LỖI)
+        // TÍNH NĂNG TTS (ĐỌC TRUYỆN - FIX MOBILE)
         // ==========================================
         let synth = window.speechSynthesis;
         let isSpeaking = false;
         let ttsQueue = [];
         let viVoice = null;
         let currentAudio = null;
-        let ttsKeepAlive = null; // Interval chống Chrome tự pause
+        let ttsKeepAlive = null;
         let ttsErrorCount = 0;
-        const TTS_MAX_ERRORS = 5; // Dừng nếu lỗi liên tiếp quá nhiều
+        let ttsCurrentChapter = 0; // Chương đang đọc TTS
+        const TTS_MAX_ERRORS = 5;
+        const TTS_MOBILE_CHUNK = 100; // Chunk nhỏ hơn cho mobile
+        const TTS_DESKTOP_CHUNK = 180;
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
         // 1. Tìm giọng Tiếng Việt - ưu tiên giọng hệ thống (local) thay vì Google
         function loadVoices() {
@@ -1545,16 +1632,20 @@
             if (rateDisp) rateDisp.textContent = cfg.ttsRate.toFixed(1);
         }, 100);
 
-        // 2. Workaround cho bug Chrome: Chrome tự pause speech sau ~15 giây
-        // Giải pháp: gọi pause/resume định kỳ mỗi 10 giây
+        // 2. Workaround cho bug Chrome/Mobile: tự pause speech
+        // Desktop: pause/resume mỗi 10s
+        // Mobile: pause/resume mỗi 3s (mobile cắt nhanh hơn)
         function startKeepAlive() {
             stopKeepAlive();
+            let interval = isMobile ? 3000 : 10000;
             ttsKeepAlive = setInterval(() => {
                 if (synth.speaking && !synth.paused) {
                     synth.pause();
-                    synth.resume();
+                    setTimeout(() => {
+                        if (isSpeaking) synth.resume();
+                    }, 50);
                 }
-            }, 10000);
+            }, interval);
         }
 
         function stopKeepAlive() {
@@ -1564,83 +1655,108 @@
             }
         }
 
+        // Chuẩn bị text cho 1 chương để đọc TTS
+        function prepareChapterTTS(chapNum) {
+            // Đảm bảo chương đã được render
+            let activeWrap = document.querySelector(`.chapter-wrapper[data-chap="${chapNum}"]`);
+            if (!activeWrap) {
+                // Chưa render → load chương lên rồi lấy text từ storyData
+                let raw = storyData[chapNum];
+                if (!raw) return '';
+                // Parse nội dung thô → chỉ lấy dòng story (không phải section header, char card...)
+                let lines = raw.split('\n');
+                let texts = [`Chương ${chapNum}`];
+                for (let line of lines) {
+                    line = line.trim();
+                    if (!line) continue;
+                    // Bỏ qua section header, char card, clue...
+                    if (line.includes('[DIỄN BIẾN CHÍNH]') || line.includes('[DIEN BIEN CHINH]')) continue;
+                    if (line.includes('[HỒ SƠ') || line.includes('[HO SO')) continue;
+                    if (line.includes('[MANH MỐI') || line.includes('[MANH MOI')) continue;
+                    if (line.startsWith('- ')) continue;
+                    if (line.startsWith('✦') || line.startsWith('* ')) continue;
+                    if (line.includes('↳') || line.includes('CẬP NHẬT:') || line.includes('CAP NHAT:')) continue;
+                    texts.push(line);
+                }
+                return texts.join('. ');
+            }
+
+            let textElements = activeWrap.querySelectorAll('.chap-divider, .story-text');
+            return Array.from(textElements).map(p => p.innerText).join('. ');
+        }
+
+        function cleanTextForTTS(rawText) {
+            return rawText
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')
+                .replace(/[✦⚡👤⚔❤💀📜🔍🔮☀️🌙🔋▼▲▾❮❯☰🎧⬇️⬆⚠️✱]/gu, '')
+                .replace(/\s*[—–]+\s*/g, '. ')
+                .replace(/\s+-\s+/g, '. ')
+                .replace(/(?<=[a-zA-ZÀ-ỹ])-(?=[a-zA-ZÀ-ỹ])/g, ' ')
+                .replace(/:/g, '. ')
+                .replace(/;/g, '. ')
+                .replace(/\.{3,}/g, '... ')
+                .replace(/\|/g, '. ')
+                .replace(/CẬP NHẬT:|CAP NHAT:/g, '')
+                .replace(/\n/g, '. ')
+                .replace(/\*+/g, '')
+                .replace(/\.{2,}/g, '.')
+                .replace(/\s{2,}/g, ' ');
+        }
+
+        function chunkText(cleanText) {
+            let maxLen = isMobile ? TTS_MOBILE_CHUNK : TTS_DESKTOP_CHUNK;
+            let rawChunks = cleanText.split('.');
+            let queue = [];
+            rawChunks.forEach(t => {
+                t = t.trim();
+                if (t.length > 2) {
+                    if (t.length <= maxLen) {
+                        queue.push(t + '.');
+                    } else {
+                        let subChunks = t.split(',');
+                        subChunks.forEach(st => {
+                            st = st.trim();
+                            while (st.length > maxLen) {
+                                queue.push(st.substring(0, maxLen));
+                                st = st.substring(maxLen).trim();
+                            }
+                            if (st.length > 2) queue.push(st + ',');
+                        });
+                    }
+                }
+            });
+            return queue;
+        }
+
         function toggleTTS() {
             let btn = document.getElementById('tts-btn');
 
-            // Bấm lần 2 để tắt
             if (isSpeaking) {
                 stopTTS();
                 return;
             }
 
-            let activeWrap = document.querySelector(`.chapter-wrapper[data-chap="${currentChapter}"]`);
-            if (!activeWrap) { showToast("Không tìm thấy nội dung chương!"); return; }
+            let rawText = prepareChapterTTS(currentChapter);
+            if (!rawText || !rawText.trim()) { showToast("Chương này không có văn bản!"); return; }
 
-            // Chỉ lấy tiêu đề chương và nội dung chính (story-text), bỏ hồ sơ/manh mối/icon
-            let textElements = activeWrap.querySelectorAll('.chap-divider, .story-text');
-            let rawText = Array.from(textElements).map(p => p.innerText).join('. ');
-
-            if (!rawText.trim()) { showToast("Chương này không có văn bản!"); return; }
-
-            // Kiểm tra giọng nói có sẵn không
             if (!viVoice) {
-                loadVoices(); // Thử load lại lần cuối
+                loadVoices();
                 if (!viVoice) {
                     showToast("Trình duyệt chưa hỗ trợ đọc giọng nói! Thử trình duyệt khác.");
                     return;
                 }
             }
 
-            // Tiền xử lý văn bản: Loại bỏ emoji/icon và ép ngắt nghỉ tự nhiên
-            let cleanText = rawText
-                // Loại bỏ tất cả emoji/icon unicode
-                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')
-                .replace(/[✦⚡👤⚔❤💀📜🔍🔮☀️🌙🔋▼▲▾❮❯☰🎧⬇️⬆⚠️✱]/gu, '')
-                // Ngắt nghỉ tại dấu gạch ngang (em dash, en dash, hyphen dùng như dấu ngắt)
-                .replace(/\s*[—–]+\s*/g, '. ')
-                .replace(/\s+-\s+/g, '. ')          // dấu - có khoảng trắng 2 bên = ngắt câu
-                .replace(/(?<=[a-zA-ZÀ-ỹ])-(?=[a-zA-ZÀ-ỹ])/g, ' ')  // dấu - nối từ = khoảng trắng
-                // Ngắt nghỉ tại dấu hai chấm, chấm phẩy
-                .replace(/:/g, '. ')
-                .replace(/;/g, '. ')
-                // Dấu ba chấm thành ngắt nghỉ dài
-                .replace(/\.{3,}/g, '... ')
-                .replace(/\|/g, '. ')
-                .replace(/CẬP NHẬT:|CAP NHAT:/g, '')
-                .replace(/\n/g, '. ')
-                .replace(/\*+/g, '')                 // Bỏ dấu *
-                .replace(/\.{2,}/g, '.')              // Gom nhiều dấu chấm liên tiếp
-                .replace(/\s{2,}/g, ' ');             // Gom khoảng trắng
-
-            // Băm nhỏ văn bản (Chunking)
-            let rawChunks = cleanText.split('.');
-            ttsQueue = [];
-            rawChunks.forEach(t => {
-                t = t.trim();
-                if (t.length > 2) {
-                    if (t.length <= 180) {
-                        ttsQueue.push(t + '.');
-                    } else {
-                        let subChunks = t.split(',');
-                        subChunks.forEach(st => {
-                            st = st.trim();
-                            while (st.length > 180) {
-                                ttsQueue.push(st.substring(0, 180));
-                                st = st.substring(180).trim();
-                            }
-                            if (st.length > 2) ttsQueue.push(st + ',');
-                        });
-                    }
-                }
-            });
+            let cleanText = cleanTextForTTS(rawText);
+            ttsQueue = chunkText(cleanText);
 
             if (ttsQueue.length === 0) { showToast("Không có nội dung để đọc!"); return; }
 
             isSpeaking = true;
+            ttsCurrentChapter = currentChapter;
             ttsErrorCount = 0;
             btn.classList.add('active');
 
-            // Hủy mọi speech cũ đang chạy
             synth.cancel();
 
             showToast(`Đang đọc Chương ${currentChapter} (${ttsQueue.length} đoạn)`);
@@ -1654,20 +1770,49 @@
             if (currentAudio) { currentAudio.pause(); currentAudio = null; }
             isSpeaking = false;
             ttsQueue = [];
+            ttsCurrentChapter = 0;
             ttsErrorCount = 0;
             document.getElementById('tts-btn').classList.remove('active');
             showToast("Đã tắt âm thanh");
         }
 
+        // Tự động chuyển sang chương tiếp theo khi đọc xong
+        function ttsNextChapter() {
+            let nextIndex = availableChapters.indexOf(ttsCurrentChapter) + 1;
+            if (nextIndex < availableChapters.length) {
+                let nextChap = availableChapters[nextIndex];
+                ttsCurrentChapter = nextChap;
+
+                // Chuyển màn hình sang chương mới
+                loadChapter(nextChap);
+
+                // Chuẩn bị text cho chương mới
+                // Delay nhỏ để DOM render xong
+                setTimeout(() => {
+                    let rawText = prepareChapterTTS(nextChap);
+                    if (!rawText || !rawText.trim()) {
+                        showToast(`Chương ${nextChap} không có nội dung, bỏ qua...`);
+                        ttsNextChapter();
+                        return;
+                    }
+                    let cleanText = cleanTextForTTS(rawText);
+                    ttsQueue = chunkText(cleanText);
+                    showToast(`Tự động đọc Chương ${nextChap}`);
+                    playNextTTSChunk();
+                }, 500);
+            } else {
+                // Hết truyện
+                stopTTS();
+                showToast("Đã đọc hết toàn bộ truyện!");
+            }
+        }
+
         function playNextTTSChunk() {
-            if (!isSpeaking || ttsQueue.length === 0) {
-                // Đọc xong toàn bộ
-                stopKeepAlive();
-                isSpeaking = false;
-                document.getElementById('tts-btn').classList.remove('active');
-                if (ttsQueue.length === 0 && ttsErrorCount < TTS_MAX_ERRORS) {
-                    showToast("Đã đọc xong chương!");
-                }
+            if (!isSpeaking) return;
+
+            if (ttsQueue.length === 0) {
+                // Đọc xong chương hiện tại → tự động chuyển chương
+                ttsNextChapter();
                 return;
             }
 
@@ -1686,8 +1831,15 @@
             if (viVoice) utterance.voice = viVoice;
 
             utterance.onend = () => {
-                ttsErrorCount = 0; // Reset lỗi khi đọc thành công
-                if (isSpeaking) playNextTTSChunk();
+                ttsErrorCount = 0;
+                if (isSpeaking) {
+                    // Mobile fix: thêm delay nhỏ giữa các chunk để tránh bị cắt
+                    if (isMobile) {
+                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 150);
+                    } else {
+                        playNextTTSChunk();
+                    }
+                }
             };
 
             utterance.onerror = (e) => {
@@ -1695,20 +1847,29 @@
                 console.error("Lỗi TTS:", e.error, chunk.substring(0, 50));
                 ttsErrorCount++;
                 if (isSpeaking) {
-                    // Delay 300ms trước khi thử câu tiếp để không burn qua queue
-                    setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 300);
+                    setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, isMobile ? 500 : 300);
                 }
             };
 
             synth.speak(utterance);
         }
 
-        // Gestures (Vuốt)
+        // Mobile: Touch to resume nếu TTS bị dừng do chính sách trình duyệt
+        if (isMobile) {
+            document.addEventListener('touchend', () => {
+                if (isSpeaking && !synth.speaking && ttsQueue.length > 0) {
+                    console.log('TTS: Mobile touch-to-resume triggered');
+                    playNextTTSChunk();
+                }
+            }, { passive: true });
+        }
+
+        // Gestures (Vuốt) - không vuốt khi TTS đang đọc
         let touchStartX = 0; let touchEndX = 0;
         document.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, { passive: true });
         document.addEventListener('touchend', e => {
             touchEndX = e.changedTouches[0].screenX;
-            if (!document.querySelector('.modal-backdrop.show') && !document.getElementById('sidebar').classList.contains('open')) {
+            if (!isSpeaking && !document.querySelector('.modal-backdrop.show') && !document.getElementById('sidebar').classList.contains('open')) {
                 if (touchEndX < touchStartX - 100) changeChapter(1);
                 if (touchEndX > touchStartX + 100) changeChapter(-1);
             }
