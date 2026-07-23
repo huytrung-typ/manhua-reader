@@ -1526,7 +1526,7 @@
         let ttsErrorCount = 0;
         let ttsCurrentChapter = 0; // Chương đang đọc TTS
         const TTS_MAX_ERRORS = 5;
-        const TTS_MOBILE_CHUNK = 60; // Chunk rất ngắn cho mobile để không bị browser kill
+        const TTS_MOBILE_CHUNK = 150; // Mobile chunk (keep-alive đã bỏ, chunk có thể dài hơn)
         const TTS_DESKTOP_CHUNK = 180;
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         let ttsTimeout = null; // Timeout safety net cho mobile
@@ -1828,17 +1828,12 @@
 
             let chunk = ttsQueue.shift();
 
-            // Mobile: cancel trước mỗi lần speak để clear trạng thái cũ bị kẹt
-            if (isMobile) {
-                synth.cancel();
-            }
-
             let utterance = new SpeechSynthesisUtterance(chunk);
             utterance.lang = viVoice ? viVoice.lang : 'vi-VN';
             utterance.rate = cfg.ttsRate;
             if (viVoice) utterance.voice = viVoice;
 
-            let chunkHandled = false; // Ngăn xử lý trùng (onend + timeout)
+            let chunkHandled = false;
 
             utterance.onend = () => {
                 if (chunkHandled) return;
@@ -1846,9 +1841,7 @@
                 ttsErrorCount = 0;
                 if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
                 if (isSpeaking) {
-                    // Delay nhỏ giữa các chunk
-                    let delay = isMobile ? 200 : 50;
-                    setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, delay);
+                    setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 50);
                 }
             };
 
@@ -1873,8 +1866,8 @@
             // MOBILE SAFETY NET: Nếu onend không fire sau thời gian dự kiến,
             // tự động cancel và chuyển chunk tiếp
             if (isMobile) {
-                // Ước tính thời gian đọc: ~60 chars ở rate 1.0 ~ 4-5 giây, cộng thêm buffer
-                let estimatedMs = Math.max(3000, (chunk.length / cfg.ttsRate) * 80 + 2000);
+                // Ước tính thời gian đọc dựa trên độ dài chunk và tốc độ
+                let estimatedMs = Math.max(5000, (chunk.length / cfg.ttsRate) * 80 + 3000);
                 ttsTimeout = setTimeout(() => {
                     if (!chunkHandled && isSpeaking) {
                         console.log('TTS: Mobile timeout safety - forcing next chunk');
