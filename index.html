@@ -1196,9 +1196,21 @@
     <div id="toast" class="toast">Thông báo</div>
 
     <script>
-        // PWA Caching Setup
+        // PWA Caching Setup - Tự động cập nhật không bị lỗi lặp
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('PWA SW err:', err));
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                // Yêu cầu trình duyệt kiểm tra xem sw.js có thay đổi không (nếu có sẽ tải ngầm)
+                reg.update();
+            }).catch(err => console.log('PWA SW err:', err));
+
+            // Khi Service Worker mới kích hoạt thành công (sau khi tải xong cache mới)
+            let refreshing = false;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                refreshing = true;
+                showToast("Có bản cập nhật mới! Đang tải lại...", 3000);
+                setTimeout(() => window.location.reload(), 1500);
+            });
         }
 
         let storyData = {};
@@ -1391,12 +1403,19 @@
             });
         }
 
+        let currentActiveTocItem = null;
         function highlightToc(chap) {
-            document.querySelectorAll('.toc-item').forEach(el => el.classList.remove('active'));
+            if (currentActiveTocItem) {
+                currentActiveTocItem.classList.remove('active');
+            } else {
+                let existingActive = document.querySelector('.toc-item.active');
+                if (existingActive) existingActive.classList.remove('active');
+            }
             let activeItem = document.querySelector(`.toc-item[data-id="${chap}"]`);
             if (activeItem) {
                 activeItem.classList.add('active');
                 activeItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                currentActiveTocItem = activeItem;
             }
         }
 
@@ -1559,7 +1578,9 @@
         // TÍNH NĂNG TTS (ĐỌC TRUYỆN - FIX MOBILE)
         // ==========================================
         let synth = window.speechSynthesis;
-        let googleAudio = new Audio(); // HTML5 Audio cho chạy nền
+        let googleAudio1 = new Audio(); // HTML5 Audio cho chạy nền (Ping-pong buffer 1)
+        let googleAudio2 = new Audio(); // HTML5 Audio cho chạy nền (Ping-pong buffer 2)
+        let currentAudio = 1;
         let isSpeaking = false;
         let ttsQueue = [];
         let viVoice = null;
@@ -1796,8 +1817,11 @@
             // WARM-UP cho Google Audio: Ép trình duyệt cấp quyền phát âm thanh ngay lập tức
             // từ thao tác chạm của người dùng để không bị lỗi Autoplay Blocked
             if (cfg.ttsEngine === 'google') {
-                googleAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
-                googleAudio.play().catch(() => { });
+                googleAudio1.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+                googleAudio1.play().catch(() => { });
+                googleAudio2.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+                googleAudio2.play().catch(() => { });
+                currentAudio = 1; // Reset ping-pong
             }
 
             let rawText = prepareChapterTTS(currentChapter);
@@ -1839,8 +1863,10 @@
                 synth.resume();
             }
             synth.cancel();
-            googleAudio.pause();
-            googleAudio.src = '';
+            googleAudio1.pause();
+            googleAudio1.src = '';
+            googleAudio2.pause();
+            googleAudio2.src = '';
             
             clearTTSTimers();
             stopAudioSession();
@@ -1958,21 +1984,36 @@
             let chunkHandled = false;
 
             if (cfg.ttsEngine === 'google') {
-                // ====== GOOGLE TTS (AUDIO TAG - HỖ TRỢ CHẠY NỀN) ======
+                // ====== GOOGLE TTS (AUDIO TAG - HỖ TRỢ CHẠY NỀN & DUAL BUFFERING) ======
+                let activeAudio = (currentAudio === 1) ? googleAudio1 : googleAudio2;
+                let nextAudio = (currentAudio === 1) ? googleAudio2 : googleAudio1;
+                
                 let url = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(chunk)}`;
-                googleAudio.src = url;
-                googleAudio.playbackRate = cfg.ttsRate;
+                
+                // Nếu chưa được tải trước đó thì gán src
+                if (!activeAudio.src || !activeAudio.src.includes(encodeURIComponent(chunk))) {
+                    activeAudio.src = url;
+                }
+                activeAudio.playbackRate = cfg.ttsRate;
 
-                googleAudio.onended = () => {
+                // Tải trước (preload) chunk tiếp theo để loại bỏ độ trễ mạng
+                if (ttsQueue.length > 0) {
+                    let nextUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=vi&q=${encodeURIComponent(ttsQueue[0])}`;
+                    nextAudio.src = nextUrl;
+                    nextAudio.load();
+                }
+
+                activeAudio.onended = () => {
                     if (chunkHandled) return;
                     chunkHandled = true;
                     ttsErrorCount = 0;
+                    currentAudio = (currentAudio === 1) ? 2 : 1; // Đổi sang audio kia
                     if (isSpeaking) {
-                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 50);
+                        playNextTTSChunk(); // Chạy ngay lập tức không có delay 50ms
                     }
                 };
 
-                googleAudio.onerror = (e) => {
+                activeAudio.onerror = (e) => {
                     if (chunkHandled) return;
                     chunkHandled = true;
                     console.error("Lỗi Google TTS:", e);
@@ -1982,7 +2023,7 @@
                     }
                 };
 
-                googleAudio.play().catch(e => {
+                activeAudio.play().catch(e => {
                     console.error("Play block:", e);
                     if (!chunkHandled) {
                         chunkHandled = true;
