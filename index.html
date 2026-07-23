@@ -1467,7 +1467,7 @@
             let div = document.createElement('div');
             div.className = 'chapter-wrapper';
             div.dataset.chap = chapNum;
-            div.innerHTML = parseAIContent(storyData[chapNum]);
+            div.innerHTML = `<div class="chap-divider"><span>Chương ${chapNum}</span></div>` + parseAIContent(storyData[chapNum]);
 
             cBox.innerHTML = '';
             cBox.appendChild(div);
@@ -1684,19 +1684,17 @@
 
         // Chuẩn bị text cho 1 chương để đọc TTS
         function prepareChapterTTS(chapNum) {
-            // Đảm bảo chương đã được render
+            let chapterTitle = `Chương ${chapNum}.`;
+
             let activeWrap = document.querySelector(`.chapter-wrapper[data-chap="${chapNum}"]`);
             if (!activeWrap) {
-                // Chưa render → load chương lên rồi lấy text từ storyData
                 let raw = storyData[chapNum];
                 if (!raw) return '';
-                // Parse nội dung thô → chỉ lấy dòng story (không phải section header, char card...)
                 let lines = raw.split('\n');
-                let texts = [`Chương ${chapNum}`];
+                let texts = [];
                 for (let line of lines) {
                     line = line.trim();
                     if (!line) continue;
-                    // Bỏ qua section header, char card, clue...
                     if (line.includes('[DIỄN BIẾN CHÍNH]') || line.includes('[DIEN BIEN CHINH]')) continue;
                     if (line.includes('[HỒ SƠ') || line.includes('[HO SO')) continue;
                     if (line.includes('[MANH MỐI') || line.includes('[MANH MOI')) continue;
@@ -1705,53 +1703,76 @@
                     if (line.includes('↳') || line.includes('CẬP NHẬT:') || line.includes('CAP NHAT:')) continue;
                     texts.push(line);
                 }
-                return texts.join('. ');
+                return chapterTitle + ' ' + texts.join('. ');
             }
 
-            let textElements = activeWrap.querySelectorAll('.chap-divider, .story-text');
-            return Array.from(textElements).map(p => p.innerText).join('. ');
+            let textElements = activeWrap.querySelectorAll('.story-text');
+            let storyText = Array.from(textElements).map(p => p.innerText).join('. ');
+            return chapterTitle + ' ' + storyText;
         }
 
         function cleanTextForTTS(rawText) {
             return rawText
+                // Loại bỏ emoji/icon
                 .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')
                 .replace(/[✦⚡👤⚔❤💀📜🔍🔮☀️🌙🔋▼▲▾❮❯☰🎧⬇️⬆⚠️✱]/gu, '')
-                .replace(/\s*[—–]+\s*/g, '. ')
-                .replace(/\s+-\s+/g, '. ')
+                // Dấu gạch ngang dài → dấu phẩy (để TTS ngắt nhị nhẹ thay vì ngắt câu)
+                .replace(/\s*[—–]+\s*/g, ', ')
+                .replace(/\s+-\s+/g, ', ')
                 .replace(/(?<=[a-zA-ZÀ-ỹ])-(?=[a-zA-ZÀ-ỹ])/g, ' ')
-                .replace(/:/g, '. ')
-                .replace(/;/g, '. ')
-                .replace(/\.{3,}/g, '... ')
-                .replace(/\|/g, '. ')
+                // Dấu hai chấm, chấm phẩy → dấu phẩy (ngắt nhị, không ngắt câu)
+                .replace(/:/g, ',')
+                .replace(/;/g, ',')
+                .replace(/\.{3,}/g, '.')
+                .replace(/\|/g, ', ')
                 .replace(/CẬP NHẬT:|CAP NHAT:/g, '')
-                .replace(/\n/g, '. ')
+                .replace(/\n/g, ' ')
                 .replace(/\*+/g, '')
-                .replace(/\.{2,}/g, '.')
-                .replace(/\s{2,}/g, ' ');
+                .replace(/,{2,}/g, ',')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
         }
 
+        // Chunking thông minh: ghép các câu ngắn thành chunk lớn, chỉ tách tại ranh giới câu
         function chunkText(cleanText) {
             let maxLen = isMobile ? TTS_MOBILE_CHUNK : TTS_DESKTOP_CHUNK;
-            let rawChunks = cleanText.split('.');
+            // Tách theo câu (dấu chấm + khoảng trắng hoặc cuối chuỗi)
+            let sentences = cleanText.match(/[^.!?]+[.!?]+/g) || [cleanText];
             let queue = [];
-            rawChunks.forEach(t => {
-                t = t.trim();
-                if (t.length > 2) {
-                    if (t.length <= maxLen) {
-                        queue.push(t + '.');
-                    } else {
-                        let subChunks = t.split(',');
-                        subChunks.forEach(st => {
-                            st = st.trim();
-                            while (st.length > maxLen) {
-                                queue.push(st.substring(0, maxLen));
-                                st = st.substring(maxLen).trim();
+            let current = '';
+
+            sentences.forEach(s => {
+                s = s.trim();
+                if (!s || s.length <= 1) return;
+
+                // Nếu thêm câu này vào mà vẫn vừa maxLen, ghép lại
+                if ((current + ' ' + s).trim().length <= maxLen) {
+                    current = (current + ' ' + s).trim();
+                } else {
+                    // Push chunk hiện tại nếu có
+                    if (current.length > 2) queue.push(current);
+                    // Nếu câu quá dài, cắt theo dấu phẩy
+                    if (s.length > maxLen) {
+                        let parts = s.split(',');
+                        let sub = '';
+                        parts.forEach(p => {
+                            p = p.trim();
+                            if ((sub + ', ' + p).trim().length <= maxLen) {
+                                sub = (sub ? sub + ', ' : '') + p;
+                            } else {
+                                if (sub.length > 2) queue.push(sub);
+                                sub = p;
                             }
-                            if (st.length > 2) queue.push(st + ',');
                         });
+                        if (sub.length > 2) current = sub;
+                        else current = '';
+                    } else {
+                        current = s;
                     }
                 }
             });
+            if (current.length > 2) queue.push(current);
+
             return queue;
         }
 
@@ -1786,7 +1807,10 @@
 
             synth.cancel();
 
-            showToast(`Đang đọc Chương ${currentChapter} (${ttsQueue.length} đoạn)`);
+            // Khởi tạo audio session để phát ngầm trên mobile
+            initAudioSession();
+
+            showToast(`Đang đọc Chương ${currentChapter}`);
             startKeepAlive();
             playNextTTSChunk();
         }
@@ -1794,6 +1818,7 @@
         function stopTTS() {
             synth.cancel();
             stopKeepAlive();
+            stopAudioSession();
             if (ttsMonitor) { clearInterval(ttsMonitor); ttsMonitor = null; }
             if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
             if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -1803,6 +1828,58 @@
             ttsErrorCount = 0;
             document.getElementById('tts-btn').classList.remove('active');
             showToast("Đã tắt âm thanh");
+        }
+
+        // === AUDIO SESSION: Giữ audio sống khi màn hình tắt / app ẩn ===
+        let silentAudio = null;
+
+        function initAudioSession() {
+            stopAudioSession();
+
+            // Tạo âm thanh im lặng bằng Web Audio API
+            try {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                // Tạo 1 giây âm thanh im lặng
+                let buffer = audioCtx.createBuffer(1, audioCtx.sampleRate, audioCtx.sampleRate);
+                let source = audioCtx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(audioCtx.destination);
+                source.start();
+            } catch (e) {
+                console.log('AudioContext init failed:', e);
+            }
+
+            // Tạo thẻ audio với data URI im lặng, loop vô hạn
+            // Điều này giữ audio session sống trên mobile
+            try {
+                silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+                silentAudio.loop = true;
+                silentAudio.volume = 0.01; // Gần như im lặng
+                silentAudio.play().catch(() => { });
+            } catch (e) {
+                console.log('Silent audio init failed:', e);
+            }
+
+            // Media Session API - hiển thị trên màn hình khóa
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: `Chương ${ttsCurrentChapter}`,
+                    artist: 'AI Summary Reader',
+                    album: 'Vạn Cổ Chí Tôn'
+                });
+                navigator.mediaSession.setActionHandler('pause', () => stopTTS());
+                navigator.mediaSession.setActionHandler('play', () => {
+                    if (!isSpeaking) toggleTTS();
+                });
+            }
+        }
+
+        function stopAudioSession() {
+            if (silentAudio) {
+                silentAudio.pause();
+                silentAudio.src = '';
+                silentAudio = null;
+            }
         }
 
         // Tự động chuyển sang chương tiếp theo khi đọc xong
