@@ -1526,9 +1526,10 @@
         let ttsErrorCount = 0;
         let ttsCurrentChapter = 0; // Chương đang đọc TTS
         const TTS_MAX_ERRORS = 5;
-        const TTS_MOBILE_CHUNK = 100; // Chunk nhỏ hơn cho mobile
+        const TTS_MOBILE_CHUNK = 60; // Chunk rất ngắn cho mobile để không bị browser kill
         const TTS_DESKTOP_CHUNK = 180;
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        let ttsTimeout = null; // Timeout safety net cho mobile
 
         // 1. Tìm giọng Tiếng Việt - ưu tiên giọng hệ thống (local) thay vì Google
         function loadVoices() {
@@ -1632,26 +1633,27 @@
             if (rateDisp) rateDisp.textContent = cfg.ttsRate.toFixed(1);
         }, 100);
 
-        // 2. Workaround cho bug Chrome/Mobile: tự pause speech
-        // Desktop: pause/resume mỗi 10s
-        // Mobile: pause/resume mỗi 3s (mobile cắt nhanh hơn)
+        // 2. Workaround cho bug Chrome Desktop: tự pause speech sau ~15s
+        // CHỈ áp dụng cho Desktop - trên Mobile pause/resume gây phản tác dụng
         function startKeepAlive() {
             stopKeepAlive();
-            let interval = isMobile ? 3000 : 10000;
+            if (isMobile) return; // KHÔNG dùng keep-alive trên mobile
             ttsKeepAlive = setInterval(() => {
                 if (synth.speaking && !synth.paused) {
                     synth.pause();
-                    setTimeout(() => {
-                        if (isSpeaking) synth.resume();
-                    }, 50);
+                    synth.resume();
                 }
-            }, interval);
+            }, 10000);
         }
 
         function stopKeepAlive() {
             if (ttsKeepAlive) {
                 clearInterval(ttsKeepAlive);
                 ttsKeepAlive = null;
+            }
+            if (ttsTimeout) {
+                clearTimeout(ttsTimeout);
+                ttsTimeout = null;
             }
         }
 
@@ -1810,13 +1812,14 @@
         function playNextTTSChunk() {
             if (!isSpeaking) return;
 
+            // Clear timeout cũ
+            if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
+
             if (ttsQueue.length === 0) {
-                // Đọc xong chương hiện tại → tự động chuyển chương
                 ttsNextChapter();
                 return;
             }
 
-            // Dừng nếu lỗi quá nhiều
             if (ttsErrorCount >= TTS_MAX_ERRORS) {
                 showToast("TTS gặp quá nhiều lỗi, đã dừng.");
                 stopTTS();
@@ -1825,33 +1828,62 @@
 
             let chunk = ttsQueue.shift();
 
+            // Mobile: cancel trước mỗi lần speak để clear trạng thái cũ bị kẹt
+            if (isMobile) {
+                synth.cancel();
+            }
+
             let utterance = new SpeechSynthesisUtterance(chunk);
             utterance.lang = viVoice ? viVoice.lang : 'vi-VN';
             utterance.rate = cfg.ttsRate;
             if (viVoice) utterance.voice = viVoice;
 
+            let chunkHandled = false; // Ngăn xử lý trùng (onend + timeout)
+
             utterance.onend = () => {
+                if (chunkHandled) return;
+                chunkHandled = true;
                 ttsErrorCount = 0;
+                if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
                 if (isSpeaking) {
-                    // Mobile fix: thêm delay nhỏ giữa các chunk để tránh bị cắt
-                    if (isMobile) {
-                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 150);
-                    } else {
-                        playNextTTSChunk();
-                    }
+                    // Delay nhỏ giữa các chunk
+                    let delay = isMobile ? 200 : 50;
+                    setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, delay);
                 }
             };
 
             utterance.onerror = (e) => {
-                if (e.error === 'interrupted' || e.error === 'canceled') return;
+                if (chunkHandled) return;
+                if (e.error === 'interrupted' || e.error === 'canceled') {
+                    // Trên mobile, cancel() trước speak gây ra 'canceled' error cho utterance trước
+                    // Không làm gì cả
+                    return;
+                }
+                chunkHandled = true;
                 console.error("Lỗi TTS:", e.error, chunk.substring(0, 50));
                 ttsErrorCount++;
+                if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
                 if (isSpeaking) {
                     setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, isMobile ? 500 : 300);
                 }
             };
 
             synth.speak(utterance);
+
+            // MOBILE SAFETY NET: Nếu onend không fire sau thời gian dự kiến,
+            // tự động cancel và chuyển chunk tiếp
+            if (isMobile) {
+                // Ước tính thời gian đọc: ~60 chars ở rate 1.0 ~ 4-5 giây, cộng thêm buffer
+                let estimatedMs = Math.max(3000, (chunk.length / cfg.ttsRate) * 80 + 2000);
+                ttsTimeout = setTimeout(() => {
+                    if (!chunkHandled && isSpeaking) {
+                        console.log('TTS: Mobile timeout safety - forcing next chunk');
+                        chunkHandled = true;
+                        synth.cancel();
+                        setTimeout(() => { if (isSpeaking) playNextTTSChunk(); }, 300);
+                    }
+                }, estimatedMs);
+            }
         }
 
         // Mobile: Touch to resume nếu TTS bị dừng do chính sách trình duyệt
@@ -1859,7 +1891,8 @@
             document.addEventListener('touchend', () => {
                 if (isSpeaking && !synth.speaking && ttsQueue.length > 0) {
                     console.log('TTS: Mobile touch-to-resume triggered');
-                    playNextTTSChunk();
+                    synth.cancel();
+                    setTimeout(() => playNextTTSChunk(), 200);
                 }
             }, { passive: true });
         }
