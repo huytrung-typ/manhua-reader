@@ -1069,6 +1069,18 @@
                     <button onclick="changeScrollSpeed(0.5)">+</button>
                 </div>
             </div>
+            <div class="setting-group">
+                <label>🎤 Giọng đọc TTS</label>
+                <select id="voice-select" onchange="selectVoice(this.value)" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-color);font-size:14px;outline:none;cursor:pointer;"></select>
+            </div>
+            <div class="setting-group">
+                <label>🔊 Tốc độ đọc TTS</label>
+                <div class="flex-row">
+                    <button onclick="changeTTSRate(-0.1)">-</button>
+                    <span id="tts-rate-display" class="val-display">1.0</span>
+                    <button onclick="changeTTSRate(0.1)">+</button>
+                </div>
+            </div>
             <button class="btn-cancel" style="width:100%; margin-top: 10px;"
                 onclick="closeModal('settings-modal')">Đóng</button>
         </div>
@@ -1091,7 +1103,9 @@
             size: parseInt(localStorage.getItem('reader_size')) || 18,
             font: localStorage.getItem('reader_font') || 'sans-serif',
             theme: localStorage.getItem('reader_theme') || 'dark',
-            speed: parseFloat(localStorage.getItem('reader_speed')) || 1.0
+            speed: parseFloat(localStorage.getItem('reader_speed')) || 1.0,
+            ttsRate: parseFloat(localStorage.getItem('reader_ttsRate')) || 1.0,
+            ttsVoice: localStorage.getItem('reader_ttsVoice') || ''
         };
 
         function showToast(msg) {
@@ -1436,6 +1450,51 @@
 
             // Lọc giọng Việt
             let viVoices = voices.filter(v => v.lang === 'vi-VN' || v.lang.startsWith('vi') || v.name.toLowerCase().includes('vietnamese'));
+            // Lấy tất cả giọng để hiện trong dropdown
+            let allVoices = voices;
+
+            // Populate dropdown chọn giọng
+            let select = document.getElementById('voice-select');
+            if (select) {
+                select.innerHTML = '';
+                // Nhóm giọng Việt lên đầu
+                if (viVoices.length > 0) {
+                    let optGroup = document.createElement('optgroup');
+                    optGroup.label = '🇻🇳 Giọng Tiếng Việt';
+                    viVoices.forEach(v => {
+                        let opt = document.createElement('option');
+                        opt.value = v.name;
+                        opt.textContent = `${v.name} ${v.localService ? '(Hệ thống)' : '(Online)'}`;
+                        optGroup.appendChild(opt);
+                    });
+                    select.appendChild(optGroup);
+                }
+                // Nhóm giọng khác
+                let otherVoices = allVoices.filter(v => !viVoices.includes(v));
+                if (otherVoices.length > 0) {
+                    let optGroup2 = document.createElement('optgroup');
+                    optGroup2.label = '🌐 Giọng khác';
+                    otherVoices.forEach(v => {
+                        let opt = document.createElement('option');
+                        opt.value = v.name;
+                        opt.textContent = `${v.name} [${v.lang}]`;
+                        optGroup2.appendChild(opt);
+                    });
+                    select.appendChild(optGroup2);
+                }
+            }
+
+            // Chọn giọng đã lưu hoặc giọng mặc định
+            let savedVoiceName = cfg.ttsVoice;
+            if (savedVoiceName) {
+                let savedVoice = voices.find(v => v.name === savedVoiceName);
+                if (savedVoice) {
+                    viVoice = savedVoice;
+                    if (select) select.value = savedVoiceName;
+                    console.log('TTS: Dùng giọng đã lưu:', viVoice.name);
+                    return;
+                }
+            }
 
             if (viVoices.length > 0) {
                 // Ưu tiên giọng hệ thống (localService = true) thay vì giọng Google online
@@ -1448,8 +1507,28 @@
                 console.log('TTS: Không tìm thấy giọng Việt, dùng giọng:', viVoice?.name);
             }
 
+            if (select && viVoice) select.value = viVoice.name;
+
             // Log tất cả giọng Việt để debug
             console.log('TTS: Tất cả giọng Việt tìm thấy:', viVoices.map(v => `${v.name} (local: ${v.localService})`));
+        }
+
+        function selectVoice(voiceName) {
+            let voices = synth.getVoices();
+            let selected = voices.find(v => v.name === voiceName);
+            if (selected) {
+                viVoice = selected;
+                cfg.ttsVoice = voiceName;
+                localStorage.setItem('reader_ttsVoice', voiceName);
+                showToast(`Đã chọn giọng: ${voiceName}`);
+                console.log('TTS: Chuyển sang giọng:', viVoice.name, '| Lang:', viVoice.lang);
+            }
+        }
+
+        function changeTTSRate(delta) {
+            cfg.ttsRate = Math.max(0.5, Math.min(2.0, Math.round((cfg.ttsRate + delta) * 10) / 10));
+            localStorage.setItem('reader_ttsRate', cfg.ttsRate);
+            document.getElementById('tts-rate-display').textContent = cfg.ttsRate.toFixed(1);
         }
 
         // Chrome load giọng bất đồng bộ, cần thử lại nhiều lần
@@ -1460,6 +1539,11 @@
         // Thử lại sau 500ms phòng trường hợp voice chưa load kịp
         setTimeout(loadVoices, 500);
         setTimeout(loadVoices, 1500);
+        // Init TTS rate display
+        setTimeout(() => {
+            let rateDisp = document.getElementById('tts-rate-display');
+            if (rateDisp) rateDisp.textContent = cfg.ttsRate.toFixed(1);
+        }, 100);
 
         // 2. Workaround cho bug Chrome: Chrome tự pause speech sau ~15 giây
         // Giải pháp: gọi pause/resume định kỳ mỗi 10 giây
@@ -1492,8 +1576,8 @@
             let activeWrap = document.querySelector(`.chapter-wrapper[data-chap="${currentChapter}"]`);
             if (!activeWrap) { showToast("Không tìm thấy nội dung chương!"); return; }
 
-            // Lấy toàn bộ text từ thẻ p (nội dung) và các thẻ nhân vật
-            let textElements = activeWrap.querySelectorAll('.story-text, .section-title, .char-main, .char-update');
+            // Chỉ lấy tiêu đề chương và nội dung chính (story-text), bỏ hồ sơ/manh mối/icon
+            let textElements = activeWrap.querySelectorAll('.chap-divider, .story-text');
             let rawText = Array.from(textElements).map(p => p.innerText).join('. ');
 
             if (!rawText.trim()) { showToast("Chương này không có văn bản!"); return; }
@@ -1507,15 +1591,26 @@
                 }
             }
 
-            // Tiền xử lý văn bản: Ép ngắt nhịp thở
+            // Tiền xử lý văn bản: Loại bỏ emoji/icon và ép ngắt nghỉ tự nhiên
             let cleanText = rawText
-                .replace(/-/g, '. ')
+                // Loại bỏ tất cả emoji/icon unicode
+                .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{FE00}-\u{FE0F}\u{1F900}-\u{1F9FF}\u{200D}\u{20E3}\u{E0020}-\u{E007F}]/gu, '')
+                .replace(/[✦⚡👤⚔❤💀📜🔍🔮☀️🌙🔋▼▲▾❮❯☰🎧⬇️⬆⚠️✱]/gu, '')
+                // Ngắt nghỉ tại dấu gạch ngang (em dash, en dash, hyphen dùng như dấu ngắt)
+                .replace(/\s*[—–]+\s*/g, '. ')
+                .replace(/\s+-\s+/g, '. ')          // dấu - có khoảng trắng 2 bên = ngắt câu
+                .replace(/(?<=[a-zA-ZÀ-ỹ])-(?=[a-zA-ZÀ-ỹ])/g, ' ')  // dấu - nối từ = khoảng trắng
+                // Ngắt nghỉ tại dấu hai chấm, chấm phẩy
+                .replace(/:/g, '. ')
+                .replace(/;/g, '. ')
+                // Dấu ba chấm thành ngắt nghỉ dài
+                .replace(/\.{3,}/g, '... ')
                 .replace(/\|/g, '. ')
-                .replace(/[✦*⚡👤⚔❤💀📜🔍]/gu, '')
-                .replace(/CẬP NHẬT:|CAP NHAT:/g, 'Cập nhật. ')
+                .replace(/CẬP NHẬT:|CAP NHAT:/g, '')
                 .replace(/\n/g, '. ')
-                .replace(/\.{2,}/g, '.') // Gom nhiều dấu chấm liên tiếp
-                .replace(/\s{2,}/g, ' '); // Gom khoảng trắng
+                .replace(/\*+/g, '')                 // Bỏ dấu *
+                .replace(/\.{2,}/g, '.')              // Gom nhiều dấu chấm liên tiếp
+                .replace(/\s{2,}/g, ' ');             // Gom khoảng trắng
 
             // Băm nhỏ văn bản (Chunking)
             let rawChunks = cleanText.split('.');
@@ -1586,8 +1681,8 @@
             let chunk = ttsQueue.shift();
 
             let utterance = new SpeechSynthesisUtterance(chunk);
-            utterance.lang = 'vi-VN';
-            utterance.rate = 1.05;
+            utterance.lang = viVoice ? viVoice.lang : 'vi-VN';
+            utterance.rate = cfg.ttsRate;
             if (viVoice) utterance.voice = viVoice;
 
             utterance.onend = () => {
