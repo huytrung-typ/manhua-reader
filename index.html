@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#0f111a">
+    <meta name="referrer" content="no-referrer">
     <link rel="manifest" href="manifest.json">
     <title>AI Summary Reader</title>
     <style>
@@ -1188,9 +1189,20 @@
     <div id="toast" class="toast">Thông báo</div>
 
     <script>
-        // PWA Caching Setup
+        // PWA Caching Setup - Ép tải bản mới nhất bỏ qua cache
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js').catch(err => console.log('PWA SW err:', err));
+            let swUrl = 'sw.js?v=' + new Date().getTime();
+            navigator.serviceWorker.register(swUrl).then(reg => {
+                reg.onupdatefound = () => {
+                    const installingWorker = reg.installing;
+                    installingWorker.onstatechange = () => {
+                        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            showToast("Có bản cập nhật mới! Đang tải lại...", 3000);
+                            setTimeout(() => window.location.reload(true), 1500);
+                        }
+                    };
+                };
+            }).catch(err => console.log('PWA SW err:', err));
         }
 
         let storyData = {};
@@ -1800,6 +1812,13 @@
             if (isSpeaking) {
                 stopTTS();
                 return;
+            }
+
+            // WARM-UP cho Google Audio: Ép trình duyệt cấp quyền phát âm thanh ngay lập tức
+            // từ thao tác chạm của người dùng để không bị lỗi Autoplay Blocked
+            if (cfg.ttsEngine === 'google') {
+                googleAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+                googleAudio.play().catch(() => { });
             }
 
             let rawText = prepareChapterTTS(currentChapter);

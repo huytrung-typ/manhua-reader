@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ai-reader-v16';
+const CACHE_NAME = 'ai-reader-v17';
 const urlsToCache = [
   './',
   './index.html',
