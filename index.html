@@ -1163,12 +1163,19 @@
                 </div>
             </div>
             <div class="setting-group">
-                <label>⚙️ Nguồn âm thanh (TTS Engine)</label>
-                <select id="tts-engine-select" onchange="changeTTSEngine(this.value)"
-                    style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-color);font-size:14px;outline:none;cursor:pointer;margin-bottom:10px;">
-                    <option value="system">Hệ thống (Mặc định - Ngắt khi ẩn app)</option>
-                    <option value="google">Google API (Phát nền khi tắt màn hình)</option>
-                </select>
+                <div id="tts-engine-container">
+                    <label>⚙️ Nguồn âm thanh (TTS Engine)</label>
+                    <select id="tts-engine-select" onchange="changeTTSEngine(this.value)"
+                        style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-color);font-size:14px;outline:none;cursor:pointer;margin-bottom:10px;">
+                        <option value="system">Hệ thống (Mặc định - Ngắt khi ẩn app)</option>
+                        <option value="google">Google API (Phát nền khi tắt màn hình)</option>
+                    </select>
+                </div>
+                <script>
+                    if (!/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                        document.getElementById('tts-engine-container').style.display = 'none';
+                    }
+                </script>
                 <label>🎤 Giọng đọc (chỉ áp dụng cho Hệ thống)</label>
                 <select id="voice-select" onchange="selectVoice(this.value)"
                     style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--input-bg);color:var(--text-color);font-size:14px;outline:none;cursor:pointer;"></select>
@@ -1189,20 +1196,9 @@
     <div id="toast" class="toast">Thông báo</div>
 
     <script>
-        // PWA Caching Setup - Ép tải bản mới nhất bỏ qua cache
+        // PWA Caching Setup
         if ('serviceWorker' in navigator) {
-            let swUrl = 'sw.js?v=' + new Date().getTime();
-            navigator.serviceWorker.register(swUrl).then(reg => {
-                reg.onupdatefound = () => {
-                    const installingWorker = reg.installing;
-                    installingWorker.onstatechange = () => {
-                        if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            showToast("Có bản cập nhật mới! Đang tải lại...", 3000);
-                            setTimeout(() => window.location.reload(true), 1500);
-                        }
-                    };
-                };
-            }).catch(err => console.log('PWA SW err:', err));
+            navigator.serviceWorker.register('sw.js').catch(err => console.log('PWA SW err:', err));
         }
 
         let storyData = {};
@@ -1277,9 +1273,8 @@
 
         // Cập nhật nút chương với tổng số chương
         function updateChapBtn(chap) {
-            let total = availableChapters.length;
-            let idx = availableChapters.indexOf(chap) + 1;
-            document.getElementById('chap-btn').innerHTML = `<span>Chương ${chap} <span style="opacity:0.5;font-size:12px">(${idx}/${total})</span></span> <span>▾</span>`;
+            let maxChap = availableChapters.length > 0 ? availableChapters[availableChapters.length - 1] : 0;
+            document.getElementById('chap-btn').innerHTML = `<span>Chương ${chap} <span style="opacity:0.5;font-size:12px">(${chap}/${maxChap})</span></span> <span>▾</span>`;
         }
 
         // --- INFINITY SCROLL ĐỂ TỰ ĐỘNG TẢI CHƯƠNG MỚI ---
@@ -1573,7 +1568,7 @@
         let ttsCurrentChapter = 0;
         const TTS_MAX_ERRORS = 5;
         const TTS_MOBILE_CHUNK = 400; // Chunk lớn hơn để giảm số lần ngắt quãng giữa các đoạn
-        const TTS_DESKTOP_CHUNK = 400;
+        const TTS_DESKTOP_CHUNK = 200; // Giảm xuống 200 để mỗi đoạn chỉ tốn ~10s, tránh triệt để bug 15s của Chrome mà không cần pause/resume
         const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         let ttsTimeout = null;
         let ttsMonitor = null; // Polling monitor cho mobile
@@ -1687,24 +1682,8 @@
             if (rateDisp) rateDisp.textContent = cfg.ttsRate.toFixed(1);
         }, 100);
 
-        // 2. Workaround cho bug Chrome Desktop: tự pause speech sau ~15s
-        // CHỈ áp dụng cho Desktop - trên Mobile pause/resume gây phản tác dụng
-        function startKeepAlive() {
-            stopKeepAlive();
-            if (isMobile) return; // KHÔNG dùng keep-alive trên mobile
-            ttsKeepAlive = setInterval(() => {
-                if (synth.speaking && !synth.paused) {
-                    synth.pause();
-                    synth.resume();
-                }
-            }, 10000);
-        }
-
-        function stopKeepAlive() {
-            if (ttsKeepAlive) {
-                clearInterval(ttsKeepAlive);
-                ttsKeepAlive = null;
-            }
+        // (Đã loại bỏ keepAlive pause/resume vì nó gây lag/treo trình duyệt trên Desktop)
+        function clearTTSTimers() {
             if (ttsTimeout) {
                 clearTimeout(ttsTimeout);
                 ttsTimeout = null;
@@ -1851,18 +1830,21 @@
             initAudioSession();
 
             showToast(`Đang đọc Chương ${currentChapter}`);
-            startKeepAlive();
             playNextTTSChunk();
         }
 
         function stopTTS() {
+            // FIX: Trên Chrome Desktop, gọi cancel() khi đang paused sẽ gây treo UI (deadlock)
+            if (synth.paused) {
+                synth.resume();
+            }
             synth.cancel();
             googleAudio.pause();
             googleAudio.src = '';
-            stopKeepAlive();
+            
+            clearTTSTimers();
             stopAudioSession();
             if (ttsMonitor) { clearInterval(ttsMonitor); ttsMonitor = null; }
-            if (ttsTimeout) { clearTimeout(ttsTimeout); ttsTimeout = null; }
             isSpeaking = false;
             ttsQueue = [];
             ttsCurrentChapter = 0;
